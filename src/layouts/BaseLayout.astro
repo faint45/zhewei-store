@@ -63,6 +63,8 @@ const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" :
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- AOS Animate On Scroll -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
     <title>{fullTitle}</title>
   </head>
   <body class="min-h-screen">
@@ -113,6 +115,12 @@ const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" :
         </div>
       </div>
     </footer>
+    <!-- AOS Init -->
+    <script is:inline src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script is:inline>
+      AOS.init({ duration: 700, easing: 'ease-out-cubic', once: true, offset: 80 });
+    </script>
+
     <!-- Tawk.to Live Chat (free) — Register at tawk.to to get your widget ID -->
     <script is:inline>
     var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
