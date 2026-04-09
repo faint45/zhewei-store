@@ -73,15 +73,16 @@ const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" :
       <slot />
     </main>
     <footer class="border-t border-border bg-bg-card/50">
-      <div class="mx-auto max-w-6xl px-4 py-12">
-        <div class="grid gap-8 md:grid-cols-3">
-          <div>
+      <div class="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+        <div class="grid grid-cols-2 gap-6 sm:gap-8 md:grid-cols-3">
+          <div class="col-span-2 md:col-span-1">
             <div class="flex items-center gap-2 text-lg font-bold text-text-heading">
               <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-amber-500 text-sm text-white">築</span>
               <span>築未科技</span>
             </div>
-            <p class="mt-3 text-sm text-text-muted">
-              用 AI 為台灣營建業打造下一代智慧工具。
+            <p class="mt-2 text-sm text-text-muted">
+              營建科技化 × 科技防災<br class="hidden sm:block" />
+              台灣營建業 AI 智慧平台
             </p>
           </div>
           <div>
@@ -104,14 +105,14 @@ const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" :
             </ul>
           </div>
         </div>
-        <div class="mt-8 border-t border-border pt-6 flex flex-col items-center gap-2 text-xs text-text-muted">
-          <div class="flex gap-4">
+        <div class="mt-6 border-t border-border pt-4 sm:pt-6 flex flex-col items-center gap-2 text-xs text-text-muted">
+          <div class="flex flex-wrap justify-center gap-3 sm:gap-4">
             <a href="/terms" class="hover:text-accent">服務條款</a>
             <a href="/privacy" class="hover:text-accent">隱私政策</a>
             <a href="/docs" class="hover:text-accent">API 文件</a>
             <a href="/login" class="hover:text-accent">登入</a>
           </div>
-          <div>&copy; 2026 築未科技有限公司 Zhe-Wei Tech Co., Ltd. 統編 60322901</div>
+          <div class="text-center">&copy; 2026 築未科技有限公司 統編 60322901</div>
         </div>
       </div>
     </footer>
