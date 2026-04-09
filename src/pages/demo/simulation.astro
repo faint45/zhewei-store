@@ -119,7 +119,7 @@ let _ghostMesh: THREE.Mesh;
 let _terrainHeightFn: (x: number, z: number) => number = terrainY;
 // For procedural terrain: 80 units = ~200m (construction site scale)
 // For satellite terrain: computed from tile zoom level
-let _metersPerUnit = 2.5; // default: 80 units = 200m
+let _metersPerUnit = 1.0; // default terrain: 1 world unit ≈ 1 meter (procedural models authored at this scale)
 let _selectedEqId: string | null = null;
 let _toolMode: "place" | "path" | "area" | "delete" = "place";
 let _dragStartX = 0, _dragStartY = 0, _isDragging = false;
@@ -319,29 +319,8 @@ async function buildEquipmentMesh(def: EquipmentDef, px: number, pz: number): Pr
   const realLen = def.realLen || 5; // meters
   const targetWorldUnits = realLen / _metersPerUnit;
 
-  // Try GLTF model first
-  if (def.glb) {
-    try {
-      const model = await loadGLTFModel(def.glb);
-      model.name = def.id;
-      // Measure model's bounding box to compute correct scale
-      const box = new THREE.Box3().setFromObject(model);
-      const modelSize = new THREE.Vector3();
-      box.getSize(modelSize);
-      const maxDim = Math.max(modelSize.x, modelSize.y, modelSize.z, 0.01);
-      const autoScale = targetWorldUnits / maxDim;
-      model.scale.setScalar(autoScale);
-      if (def.rotY) model.rotation.y = def.rotY;
-      // Position on terrain, offset Y by half the scaled height so model sits on ground
-      const scaledBox = new THREE.Box3().setFromObject(model);
-      const yOffset = -scaledBox.min.y; // lift model so bottom touches ground
-      model.position.set(px, _terrainHeightFn(px, pz) + yOffset, pz);
-      model.castShadow = true;
-      return model;
-    } catch (e) {
-      console.warn(`Failed to load GLTF ${def.glb}, using procedural mesh`, e);
-    }
-  }
+  // Use PBR procedural mesh (more realistic than low-poly GLTF)
+  // GLTF models disabled — they were cartoon-style and looked fake
 
   // Fallback: procedural mesh
   const g = new THREE.Group();

@@ -145,18 +145,18 @@ import { products } from "../content/products";
 </div>
 
 <script>
-const API = "https://api.zhe-wei.net";
+const API = "https://control.zhe-wei.net";
 
-// Map product id → payment plan id
+// Map product id → Stripe plan id (must match control-center PLANS dict)
 const PLAN_MAP: Record<string, string> = {
-  "doc-ai": "starter",
-  "site-ai": "starter",
-  "plan-ai": "pro",
-  "safe-ai": "starter",
-  "vr-trainer": "pro",
-  "commander": "enterprise",
-  "disaster-ai": "starter",
-  "enterprise": "enterprise",
+  "doc-ai":      "doc-ai",
+  "site-ai":     "site-ai",
+  "plan-ai":     "plan-ai",
+  "safe-ai":     "safe-ai",
+  "vr-trainer":  "plan-ai",
+  "commander":   "enterprise",
+  "disaster-ai": "site-ai",
+  "enterprise":  "enterprise",
 };
 
 const modal = document.getElementById("pay-modal")!;
@@ -210,14 +210,11 @@ form.addEventListener("submit", async (e) => {
 
   try {
     const payload = {
-      plan: (document.getElementById("pay-plan") as HTMLInputElement).value,
+      plan_id: (document.getElementById("pay-plan") as HTMLInputElement).value,
       email: (document.getElementById("pay-email") as HTMLInputElement).value,
-      company: (document.getElementById("pay-company") as HTMLInputElement).value,
-      name: (document.getElementById("pay-name") as HTMLInputElement).value,
-      return_url: `${location.origin}/payment/result`,
     };
 
-    const res = await fetch(`${API}/api/v1/payment/create`, {
+    const res = await fetch(`${API}/payment/checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -225,11 +222,12 @@ form.addEventListener("submit", async (e) => {
 
     if (!res.ok) throw new Error("付款建立失敗");
 
-    // Response is HTML with auto-submit form — open in same window
-    const html = await res.text();
-    const newDoc = window.open("", "_self");
-    newDoc?.document.write(html);
-    newDoc?.document.close();
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url; // Stripe Checkout 頁面
+    } else {
+      throw new Error(data.detail || "無法取得付款連結");
+    }
   } catch (err: any) {
     alert(err.message || "付款失敗，請稍後再試");
     btn.disabled = false;
