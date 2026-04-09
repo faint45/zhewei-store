@@ -75,7 +75,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 </BaseLayout>
 
 <script>
-const API = "https://cai.zhe-wei.net";
+const API = "https://api.zhe-wei.net";
 
 document.getElementById("show-register")?.addEventListener("click", () => {
   document.getElementById("login-panel")!.classList.add("hidden");
@@ -92,7 +92,7 @@ document.getElementById("login-form")?.addEventListener("submit", async (e) => {
   const errEl = document.getElementById("l-error")!;
   errEl.classList.add("hidden");
   try {
-    const res = await fetch(`${API}/api/v1/auth/login/email`, {
+    const res = await fetch(`${API}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
