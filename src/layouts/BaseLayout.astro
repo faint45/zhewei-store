@@ -17,9 +17,48 @@ const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" :
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    <meta name="keywords" content="營建AI,施工管理,安全檢查,排程系統,防災預警,BIM,數位孿生,台灣營建業" />
+    <meta name="author" content="築未科技有限公司" />
+    <!-- Open Graph -->
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:site_name" content="築未科技" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:image" content="https://store.zhe-wei.net/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="https://store.zhe-wei.net/og-image.png" />
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "築未科技 AI 平台",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": description,
+      "url": "https://store.zhe-wei.net",
+      "author": {
+        "@type": "Organization",
+        "name": "築未科技有限公司",
+        "url": "https://store.zhe-wei.net",
+        "telephone": "0975-705-110",
+        "email": "hello@zhe-wei.net"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "TWD",
+        "description": "免費方案 — 每日 100 次 API 呼叫"
+      }
+    })} />
+    <!-- Canonical -->
+    <link rel="canonical" href={Astro.url.href} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -74,5 +113,23 @@ const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" :
         </div>
       </div>
     </footer>
+    <!-- Tawk.to Live Chat (free) — Register at tawk.to to get your widget ID -->
+    <script is:inline>
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    (function(){
+    var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+    s1.async=true;
+    s1.src='https://embed.tawk.to/default/default';
+    s1.charset='UTF-8';
+    s1.setAttribute('crossorigin','*');
+    s0.parentNode.insertBefore(s1,s0);
+    })();
+    </script>
+
+    <!-- Umami Analytics (self-hosted, privacy-friendly, free) -->
+    <!-- Replace data-website-id with your Umami site ID after setup -->
+    <!--
+    <script defer src="https://analytics.zhe-wei.net/script.js" data-website-id="YOUR_SITE_ID"></script>
+    -->
   </body>
 </html>
