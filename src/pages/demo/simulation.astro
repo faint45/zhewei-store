@@ -1,0 +1,1365 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="互動工地模擬"
+  description="真實衛星地形、16 種營建機具動態作動模擬、路徑繪製、AI 自動排程 — 築未科技互動體驗。"
+>
+  <section class="px-4 py-10">
+    <div class="mx-auto max-w-7xl">
+      <div class="mb-8 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-sm font-medium text-accent">
+          PlanAI × SiteAI — 互動體驗
+        </div>
+        <h1 class="text-3xl font-black md:text-4xl">3D 工地模擬 + AI 自動排程</h1>
+        <p class="mt-3 text-text-muted md:text-lg">
+          選擇真實地點、放置機具、繪製作業路徑，AI 即時生成 CPM 排程。
+        </p>
+      </div>
+
+      <div id="sim-container" class="rounded-2xl border border-border bg-bg-card overflow-hidden" style="min-height:640px">
+        <div id="sim-loading" class="flex items-center justify-center" style="min-height:640px">
+          <div class="text-center">
+            <div class="mb-4 h-10 w-10 animate-spin rounded-full border-2 border-border border-t-accent mx-auto"></div>
+            <p class="text-sm text-text-muted">載入 3D 引擎中…</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8 grid gap-4 sm:grid-cols-4">
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">🛰️ 衛星地形</div>
+          <p class="text-sm text-text-muted">輸入地址或座標，自動擷取 ESRI 衛星影像 + 真實高程生成 3D 地形。</p>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">🚧 16 種機具</div>
+          <p class="text-sm text-text-muted">挖掘機、吊車、傾卸卡車、泵車等台灣常見營建機具，高擬真動態作動。</p>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">🛤️ 路徑繪製</div>
+          <p class="text-sm text-text-muted">在地形上繪製行駛路線或框選作業區域，機具自動沿路徑作動。</p>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">⚡ AI CPM 排程</div>
+          <p class="text-sm text-text-muted">依據放置機具組合，AI 自動生成施工排程、關鍵路徑與風險提示。</p>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-center">
+        <a href="/demo" class="rounded-xl bg-accent px-8 py-3 font-semibold text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent-hover">
+          申請完整試用
+        </a>
+        <a href="/products/plan-ai" class="rounded-xl border border-border px-8 py-3 font-semibold text-text-heading transition-colors hover:border-accent/50 hover:text-accent">
+          了解 PlanAI 詳情
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+/* ═══════════════════════════════════════════════
+   EQUIPMENT CATALOG — 16 台灣常見營建機具
+   ═══════════════════════════════════════════════ */
+interface EquipmentDef {
+  id: string; name: string; cat: string; task: string; duration: number;
+  color: number; glb?: string; scale?: number; rotY?: number;
+  realLen?: number; /* real-world length in meters, for auto-scaling to map */
+}
+const CATS: Record<string, string> = {
+  earth: "土方機具", lift: "吊裝機具", transport: "運輸機具",
+  concrete: "混凝土機具", road: "道路工程", safety: "交通安全設施", other: "其他設備",
+};
+const EQ: EquipmentDef[] = [
+  // 土方  (realLen = real-world longest dimension in meters)
+  { id:"exc-l", name:"挖掘機(大)", cat:"earth", task:"土方開挖", duration:30, color:0xf4a027, glb:"/models/excavator.glb", realLen:10 },
+  { id:"exc-s", name:"挖掘機(小)", cat:"earth", task:"溝渠開挖", duration:20, color:0xe89020, glb:"/models/excavator.glb", realLen:6 },
+  { id:"bull",  name:"推土機",     cat:"earth", task:"整地作業", duration:14, color:0xffd700, glb:"/models/bulldozer.glb", realLen:6 },
+  { id:"roller",name:"壓路機",     cat:"earth", task:"壓實作業", duration:10, color:0xddbb00, glb:"/models/road-roller.glb", realLen:5 },
+  { id:"bobcat",name:"山貓",       cat:"earth", task:"搬運整理", duration:12, color:0xee9922, glb:"/models/forklift.glb", realLen:3.5 },
+  // 吊裝
+  { id:"crane-t", name:"塔式起重機", cat:"lift", task:"吊裝作業",   duration:90, color:0xffaa00, glb:"/models/crane.glb", realLen:50 },
+  { id:"crane-c", name:"履帶吊車",   cat:"lift", task:"重物吊裝",   duration:60, color:0xff8800, glb:"/models/crane-truck.glb", realLen:20 },
+  { id:"crane-k", name:"吊卡車",     cat:"lift", task:"一般吊裝",   duration:45, color:0xdd7700, glb:"/models/crane-truck.glb", realLen:12 },
+  { id:"elev",    name:"施工電梯",   cat:"lift", task:"垂直運輸",   duration:80, color:0x888888, realLen:30 },
+  // 運輸
+  { id:"dump",  name:"傾卸卡車", cat:"transport", task:"土方運輸", duration:25, color:0x6688aa, glb:"/models/dump-truck.glb", realLen:8 },
+  { id:"flat",  name:"平板貨車", cat:"transport", task:"材料運輸", duration:20, color:0x557799, glb:"/models/flatbed-truck.glb", realLen:10 },
+  { id:"led",   name:"LED 警示車", cat:"transport", task:"交通管制", duration:30, color:0xff6600, glb:"/models/led-truck.glb", realLen:8 },
+  { id:"crash", name:"緩撞車",     cat:"transport", task:"施工防護", duration:30, color:0xffaa00, glb:"/models/dump-truck.glb", realLen:7 },
+  // 混凝土
+  { id:"pump",  name:"混凝土泵車",   cat:"concrete", task:"混凝土澆置", duration:60, color:0x2266cc, realLen:12 },
+  { id:"mixer", name:"混凝土攪拌車", cat:"concrete", task:"混凝土供應", duration:30, color:0x3377dd, glb:"/models/concrete-mixer.glb", realLen:9 },
+  // 道路工程
+  { id:"milling", name:"AC刨除機", cat:"road", task:"路面刨除", duration:20, color:0xcc6600, glb:"/models/bulldozer.glb", realLen:7 },
+  { id:"paver",   name:"鋪裝機",   cat:"road", task:"瀝青鋪設", duration:25, color:0xdd8800, glb:"/models/paver.glb", realLen:8 },
+  { id:"roller2", name:"鋼輪壓路機", cat:"road", task:"路面壓實", duration:15, color:0xccaa00, glb:"/models/road-roller.glb", realLen:5 },
+  // 交通安全設施
+  { id:"cone",      name:"交通錐",     cat:"safety", task:"交通管制", duration:1, color:0xff6600, glb:"/models/traffic-cone.glb", realLen:0.7 },
+  { id:"barrier",   name:"拒馬",       cat:"safety", task:"道路封閉", duration:1, color:0xff4400, glb:"/models/barricade.glb", realLen:1.5 },
+  { id:"road-sign", name:"施工告示牌", cat:"safety", task:"施工提醒", duration:1, color:0xff8800, glb:"/models/road-barrier.glb", realLen:1.2 },
+  // 其他
+  { id:"pile",  name:"打樁機",     cat:"other", task:"基樁施工", duration:45, color:0x888888, realLen:18 },
+  { id:"gen",   name:"發電機",     cat:"other", task:"臨時電力", duration:90, color:0x556655, glb:"/models/generator.glb", realLen:2.5 },
+  { id:"rebar", name:"鋼筋彎曲機", cat:"other", task:"鋼筋加工", duration:60, color:0x665555, realLen:1.5 },
+];
+
+/* ═══════════════════════════════════════════════
+   GLOBALS
+   ═══════════════════════════════════════════════ */
+let _renderer: THREE.WebGLRenderer | null = null;
+let _scene: THREE.Scene, _camera: THREE.PerspectiveCamera, _controls: any;
+let _terrain: THREE.Mesh | null = null;
+let _ghostMesh: THREE.Mesh;
+let _terrainHeightFn: (x: number, z: number) => number = terrainY;
+// For procedural terrain: 80 units = ~200m (construction site scale)
+// For satellite terrain: computed from tile zoom level
+let _metersPerUnit = 2.5; // default: 80 units = 200m
+let _selectedEqId: string | null = null;
+let _toolMode: "place" | "path" | "area" | "delete" = "place";
+let _dragStartX = 0, _dragStartY = 0, _isDragging = false;
+let _lastTime = performance.now();
+let _animMixers: THREE.AnimationMixer[] = [];
+
+interface PlacedEq {
+  mesh: THREE.Group;
+  def: EquipmentDef;
+  animState: Record<string, number>;
+  path?: THREE.Vector3[];
+  pathCurve?: THREE.CatmullRomCurve3;
+}
+let _placed: PlacedEq[] = [];
+
+// Path / Area drawing
+let _pathPoints: THREE.Vector3[] = [];
+let _pathLine: THREE.Line | null = null;
+let _areaPoints: THREE.Vector3[] = [];
+let _areaMesh: THREE.Mesh | null = null;
+let _drawnPaths: { points: THREE.Vector3[]; line: THREE.Line; curve: THREE.CatmullRomCurve3 }[] = [];
+let _drawnAreas: { points: THREE.Vector3[]; mesh: THREE.Mesh }[] = [];
+
+/* ═══════════════════════════════════════════════
+   TERRAIN — procedural fallback
+   ═══════════════════════════════════════════════ */
+function terrainY(x: number, z: number): number {
+  return Math.sin(x*0.14)*1.8+Math.cos(z*0.11)*1.3+Math.sin((x+z)*0.07)*2.2+Math.cos(x*0.23)*0.9;
+}
+
+/* ═══════════════════════════════════════════════
+   TERRAIN — Mapbox/ESRI satellite + AWS elevation
+   ═══════════════════════════════════════════════ */
+function lngLatToTile(lng: number, lat: number, z: number) {
+  const x = Math.floor((lng + 180) / 360 * (1 << z));
+  const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * (1 << z));
+  return { x, y, z };
+}
+
+function fetchImg(url: string): Promise<HTMLImageElement> {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = url;
+  });
+}
+
+async function buildSatelliteTerrain(lng: number, lat: number, zoom = 15): Promise<{ mesh: THREE.Mesh; heightAt: (x: number, z: number) => number }> {
+  const t = lngLatToTile(lng, lat, zoom);
+  // Calculate real-world tile size in meters (Web Mercator)
+  const tileMeters = 40075016.686 * Math.cos(lat * Math.PI / 180) / (1 << zoom);
+  _metersPerUnit = tileMeters / 80; // 80 = world size
+  // Fetch tiles
+  const satUrl = (tx: number, ty: number) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${t.z}/${ty}/${tx}`;
+  const demUrl = (tx: number, ty: number) => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${t.z}/${tx}/${ty}.png`;
+
+  const [satImg, demImg] = await Promise.all([
+    fetchImg(satUrl(t.x, t.y)),
+    fetchImg(demUrl(t.x, t.y)),
+  ]);
+
+  // Decode DEM (Terrarium format: height = (R*256 + G + B/256) - 32768)
+  const cv = document.createElement("canvas");
+  cv.width = demImg.width; cv.height = demImg.height;
+  const ctx = cv.getContext("2d")!;
+  ctx.drawImage(demImg, 0, 0);
+  const pxData = ctx.getImageData(0, 0, cv.width, cv.height).data;
+  const w = cv.width, h = cv.height;
+  const heights = new Float32Array(w * h);
+  let hMin = Infinity, hMax = -Infinity;
+  for (let i = 0; i < w * h; i++) {
+    const r = pxData[i * 4], g = pxData[i * 4 + 1], b = pxData[i * 4 + 2];
+    const elev = (r * 256 + g + b / 256) - 32768;
+    heights[i] = elev;
+    if (elev < hMin) hMin = elev;
+    if (elev > hMax) hMax = elev;
+  }
+
+  // Controlled exaggeration: max 6 units of height in 80-unit world
+  // This keeps terrain gentle enough that equipment is visible
+  const hRange = Math.max(hMax - hMin, 0.1);
+  const targetHeight = Math.min(6, hRange * 0.3); // at most 6 world units tall
+  const exaggeration = targetHeight / hRange;
+
+  const seg = window.innerWidth < 800 ? 64 : 128;
+  const geo = new THREE.PlaneGeometry(80, 80, seg, seg);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+
+  // Bilinear interpolation for smooth terrain (avoid jagged spikes)
+  function sampleHeight(u01: number, v01: number): number {
+    const fx = u01 * (w - 1), fy = v01 * (h - 1);
+    const ix = Math.floor(fx), iy = Math.floor(fy);
+    const dx = fx - ix, dy = fy - iy;
+    const ix1 = Math.min(ix + 1, w - 1), iy1 = Math.min(iy + 1, h - 1);
+    const h00 = heights[iy * w + ix], h10 = heights[iy * w + ix1];
+    const h01 = heights[iy1 * w + ix], h11 = heights[iy1 * w + ix1];
+    return h00 * (1 - dx) * (1 - dy) + h10 * dx * (1 - dy) + h01 * (1 - dx) * dy + h11 * dx * dy;
+  }
+
+  for (let i = 0; i < pos.count; i++) {
+    const u = uv.getX(i);
+    const v = uv.getY(i);
+    const elev = sampleHeight(u, 1 - v); // flip V for image coords
+    pos.setY(i, (elev - hMin) * exaggeration);
+  }
+  geo.computeVertexNormals();
+
+  // Create texture from satellite image — ensure proper UV alignment
+  const satCv = document.createElement("canvas");
+  satCv.width = satImg.width; satCv.height = satImg.height;
+  const satCtx = satCv.getContext("2d")!;
+  satCtx.drawImage(satImg, 0, 0);
+  const tex = new THREE.CanvasTexture(satCv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+
+  const mat = new THREE.MeshLambertMaterial({ map: tex });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.receiveShadow = true;
+
+  // Height lookup matching the same bilinear interpolation
+  const heightAt = (x: number, z: number): number => {
+    const u2 = Math.max(0, Math.min(1, (x + 40) / 80));
+    const v2 = Math.max(0, Math.min(1, (z + 40) / 80));
+    return (sampleHeight(u2, v2) - hMin) * exaggeration;
+  };
+  return { mesh, heightAt };
+}
+
+/* ═══════════════════════════════════════════════
+   GLTF MODEL LOADER
+   ═══════════════════════════════════════════════ */
+const _gltfLoader = new GLTFLoader();
+const _modelCache: Record<string, THREE.Group> = {};
+
+async function loadGLTFModel(url: string): Promise<THREE.Group> {
+  if (_modelCache[url]) return _modelCache[url].clone();
+  return new Promise((resolve, reject) => {
+    _gltfLoader.load(url, (gltf) => {
+      const model = gltf.scene;
+      model.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      _modelCache[url] = model;
+      resolve(model.clone());
+    }, undefined, reject);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   EQUIPMENT MESH BUILDERS — GLTF + 程式碼建模 (PBR)
+   ═══════════════════════════════════════════════ */
+// PBR material helpers
+function mat(c: number, r = 0.7, met = 0.1): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: met });
+}
+function metalMat(c: number): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.8 });
+}
+function glassMat(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({ color: 0x88bbff, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.4 });
+}
+const tireMat = () => mat(0x222222, 0.9, 0.0);
+const frameMat = () => metalMat(0x444444);
+const hydraulicMat = () => metalMat(0x999999);
+
+function addWheel(parent: THREE.Object3D, x: number, y: number, z: number, radius = 0.45) {
+  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.35, 16), tireMat());
+  tire.rotation.x = Math.PI / 2; tire.position.set(x, y, z); tire.name = "wheel";
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.4, radius * 0.4, 0.36, 8), metalMat(0x888888));
+  hub.rotation.x = Math.PI / 2; hub.position.set(x, y, z);
+  parent.add(tire); parent.add(hub);
+}
+
+function addHydraulicCylinder(parent: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3) {
+  const dir = to.clone().sub(from);
+  const len = dir.length();
+  const mid = from.clone().add(to).multiplyScalar(0.5);
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, len, 8), hydraulicMat());
+  cyl.position.copy(mid);
+  cyl.lookAt(to);
+  cyl.rotateX(Math.PI / 2);
+  parent.add(cyl);
+}
+
+async function buildEquipmentMesh(def: EquipmentDef, px: number, pz: number): Promise<THREE.Group> {
+  // Calculate target world-unit size from real-world dimensions
+  const realLen = def.realLen || 5; // meters
+  const targetWorldUnits = realLen / _metersPerUnit;
+
+  // Try GLTF model first
+  if (def.glb) {
+    try {
+      const model = await loadGLTFModel(def.glb);
+      model.name = def.id;
+      // Measure model's bounding box to compute correct scale
+      const box = new THREE.Box3().setFromObject(model);
+      const modelSize = new THREE.Vector3();
+      box.getSize(modelSize);
+      const maxDim = Math.max(modelSize.x, modelSize.y, modelSize.z, 0.01);
+      const autoScale = targetWorldUnits / maxDim;
+      model.scale.setScalar(autoScale);
+      if (def.rotY) model.rotation.y = def.rotY;
+      // Position on terrain, offset Y by half the scaled height so model sits on ground
+      const scaledBox = new THREE.Box3().setFromObject(model);
+      const yOffset = -scaledBox.min.y; // lift model so bottom touches ground
+      model.position.set(px, _terrainHeightFn(px, pz) + yOffset, pz);
+      model.castShadow = true;
+      return model;
+    } catch (e) {
+      console.warn(`Failed to load GLTF ${def.glb}, using procedural mesh`, e);
+    }
+  }
+
+  // Fallback: procedural mesh
+  const g = new THREE.Group();
+  g.name = def.id;
+
+  if (def.id === "exc-l" || def.id === "exc-s") {
+    const sc = def.id === "exc-s" ? 0.65 : 1;
+    const bodyColor = mat(def.color);
+    // Tracks — rounded with drive sprockets
+    [-1.15, 1.15].forEach(z => {
+      const trackFrame = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.5, 0.55), frameMat()); trackFrame.position.set(0, 0.3, z * sc); g.add(trackFrame);
+      // Track pads (rubber)
+      const pad = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.15, 0.65), tireMat()); pad.position.set(0, 0.08, z * sc); g.add(pad);
+      // Drive sprocket front/rear
+      [1.7, -1.7].forEach(x => {
+        const sprocket = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.4, 12), metalMat(0x555555));
+        sprocket.rotation.x = Math.PI / 2; sprocket.position.set(x, 0.3, z * sc); g.add(sprocket);
+      });
+      // Idler wheels
+      [-0.8, 0, 0.8].forEach(x => {
+        const idler = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.3, 10), metalMat(0x444444));
+        idler.rotation.x = Math.PI / 2; idler.position.set(x, 0.12, z * sc); g.add(idler);
+      });
+    });
+    // Turntable
+    const turntable = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.15, 24), metalMat(0x555555));
+    turntable.position.y = 0.65; g.add(turntable);
+    // Cabin pivot
+    const cabinPivot = new THREE.Group(); cabinPivot.name = "cabinPivot"; cabinPivot.position.y = 0.72;
+    // Main body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.2, 2.1), bodyColor); body.position.y = 0.6; cabinPivot.add(body);
+    // Engine cover (rear rounded)
+    const engine = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 2), bodyColor); engine.position.set(-1.2, 0.5, 0); cabinPivot.add(engine);
+    // Exhaust pipe
+    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 8), metalMat(0x333333)); exhaust.position.set(-1.4, 1.3, 0.5); cabinPivot.add(exhaust);
+    // Cab with window
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1, 1.5), bodyColor); cab.position.set(0.4, 1.5, 0); cabinPivot.add(cab);
+    const window1 = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.7), glassMat()); window1.position.set(1.06, 1.6, 0); window1.rotation.y = Math.PI / 2; cabinPivot.add(window1);
+    const window2 = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.7), glassMat()); window2.position.set(0.4, 1.6, 0.76); cabinPivot.add(window2);
+    // Counterweight
+    const cw = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 2.2), mat(0x333333, 0.8, 0.3)); cw.position.set(-1.8, 0.4, 0); cabinPivot.add(cw);
+
+    // Boom pivot (articulated arm)
+    const boomPivot = new THREE.Group(); boomPivot.name = "boomPivot"; boomPivot.position.set(1.3, 1.1, 0);
+    const boom = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3.8, 0.4), bodyColor); boom.position.y = 1.9; boomPivot.add(boom);
+    addHydraulicCylinder(boomPivot, new THREE.Vector3(-0.3, 0, 0), new THREE.Vector3(0, 2.5, 0));
+    // Stick pivot
+    const stickPivot = new THREE.Group(); stickPivot.name = "stickPivot"; stickPivot.position.set(0, 3.8, 0);
+    const stick = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), bodyColor); stick.position.y = 1.5; stickPivot.add(stick);
+    addHydraulicCylinder(stickPivot, new THREE.Vector3(0.2, 0, 0), new THREE.Vector3(0, 2, 0));
+    // Bucket pivot
+    const bucketPivot = new THREE.Group(); bucketPivot.name = "bucketPivot"; bucketPivot.position.set(0, 3, 0);
+    // Bucket with teeth
+    const bucketBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 1.1), metalMat(0x555555)); bucketBody.position.y = 0.35; bucketPivot.add(bucketBody);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 0.15), metalMat(0x666666)); lip.position.set(0, 0.05, -0.55); bucketPivot.add(lip);
+    // Bucket teeth
+    [-0.45, -0.15, 0.15, 0.45].forEach(x => {
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), metalMat(0x777777)); tooth.position.set(x, -0.05, -0.6); tooth.rotation.x = Math.PI / 2; bucketPivot.add(tooth);
+    });
+    stickPivot.add(bucketPivot); boomPivot.add(stickPivot); cabinPivot.add(boomPivot);
+    g.add(cabinPivot);
+    g.scale.setScalar(sc);
+
+  } else if (def.id === "crane-t") {
+    // Tower crane — lattice structure
+    const towerMat = mat(def.color, 0.5, 0.3);
+    // Base foundation
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, 4), mat(0x555555, 0.8, 0.2)); base.position.y = 0.4; g.add(base);
+    // Tower legs (4 corner posts)
+    [[-0.35, -0.35], [-0.35, 0.35], [0.35, -0.35], [0.35, 0.35]].forEach(([x, z]) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 18, 0.15), towerMat); leg.position.set(x, 9.8, z); g.add(leg);
+    });
+    // Lattice bracing
+    for (let y = 1; y < 18; y += 2) {
+      [0, Math.PI / 2].forEach(rot => {
+        const brace = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.8, 0.06), towerMat);
+        brace.position.set(0, y + 1, 0); brace.rotation.y = rot; brace.rotation.z = 0.6; g.add(brace);
+        const brace2 = brace.clone(); brace2.rotation.z = -0.6; g.add(brace2);
+      });
+      // Horizontal crossbar
+      const hbar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.06), towerMat); hbar.position.set(0, y, 0); g.add(hbar);
+      const hbar2 = hbar.clone(); hbar2.rotation.y = Math.PI / 2; g.add(hbar2);
+    }
+    // Slewing unit
+    const slew = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.4, 16), metalMat(0x555555)); slew.position.y = 18.8; g.add(slew);
+    // Boom group (rotates)
+    const boomG = new THREE.Group(); boomG.name = "boomGroup"; boomG.position.y = 19;
+    // Jib arm (lattice)
+    const jibLen = 16;
+    [0.15, -0.15].forEach(z => { const rail = new THREE.Mesh(new THREE.BoxGeometry(jibLen, 0.1, 0.1), towerMat); rail.position.set(-jibLen / 2 + 4, 0.15, z); boomG.add(rail); });
+    const bottomRail = new THREE.Mesh(new THREE.BoxGeometry(jibLen, 0.1, 0.4), towerMat); bottomRail.position.set(-jibLen / 2 + 4, -0.15, 0); boomG.add(bottomRail);
+    // Jib cross bracing
+    for (let x = -jibLen + 5; x < 5; x += 1.5) {
+      const vb = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.3), towerMat); vb.position.set(x, 0, 0); boomG.add(vb);
+    }
+    // Counter jib
+    const cjib = new THREE.Mesh(new THREE.BoxGeometry(5, 0.3, 0.3), towerMat); cjib.position.set(5, 0, 0); boomG.add(cjib);
+    // Counterweights
+    const cwt = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1), mat(0x444444, 0.8, 0.3)); cwt.position.set(6.5, -0.3, 0); boomG.add(cwt);
+    // Cat head / peak
+    const peak = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2, 0.15), towerMat); peak.position.set(0, 1.2, 0); boomG.add(peak);
+    // Pendant cables (top to jib tip)
+    const cableMat = metalMat(0xaaaaaa);
+    const pendantGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 2.2, 0), new THREE.Vector3(-jibLen + 4, 0.3, 0)]);
+    boomG.add(new THREE.Line(pendantGeo, new THREE.LineBasicMaterial({ color: 0x888888 })));
+    const pendantGeo2 = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 2.2, 0), new THREE.Vector3(7, 0.3, 0)]);
+    boomG.add(new THREE.Line(pendantGeo2, new THREE.LineBasicMaterial({ color: 0x888888 })));
+    // Trolley
+    const trolley = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.35), metalMat(0x666666)); trolley.position.set(-8, -0.1, 0); trolley.name = "trolley"; boomG.add(trolley);
+    // Cable + hook
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 8, 6), cableMat); cable.position.set(-8, -4.1, 0); cable.name = "cable"; boomG.add(cable);
+    const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.3), metalMat(0x888888)); hookBlock.position.set(-8, -8, 0); hookBlock.name = "hook"; boomG.add(hookBlock);
+    const hookCurve = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.04, 8, 12, Math.PI), metalMat(0xaaaaaa)); hookCurve.position.set(-8, -8.3, 0); boomG.add(hookCurve);
+    // Operator cab
+    const opCab = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.7), mat(def.color, 0.6, 0.1)); opCab.position.set(0.8, -0.2, 0); boomG.add(opCab);
+    const opWin = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.5), glassMat()); opWin.position.set(0.8, -0.1, 0.36); boomG.add(opWin);
+    g.add(boomG);
+
+  } else if (def.id === "crane-c") {
+    // Crawler crane
+    [-1.3, 1.3].forEach(z => { const t = new THREE.Mesh(new THREE.BoxGeometry(4, 0.8, 1.2), dark); t.position.set(0, 0.4, z); g.add(t); });
+    const cabinPivot = new THREE.Group(); cabinPivot.name = "cabinPivot";
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 2.4), m(def.color)); body.position.y = 1.8; cabinPivot.add(body);
+    const boomPivot = new THREE.Group(); boomPivot.name = "boomPivot"; boomPivot.position.set(1, 2.5, 0);
+    const boom = new THREE.Mesh(new THREE.BoxGeometry(0.5, 12, 0.5), m(def.color)); boom.position.y = 6; boomPivot.add(boom);
+    const hookG = new THREE.Group(); hookG.name = "hookGroup"; hookG.position.set(0, 12, 0);
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 6, 6), grey); cable.position.y = -3; hookG.add(cable);
+    const hook = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), m(0xaaaaaa)); hook.position.y = -6; hook.name = "hook"; hookG.add(hook);
+    boomPivot.add(hookG); cabinPivot.add(boomPivot); g.add(cabinPivot);
+    boomPivot.rotation.z = -0.4;
+
+  } else if (def.id === "crane-k") {
+    // Truck crane
+    const truck = new THREE.Mesh(new THREE.BoxGeometry(5, 1.6, 2), m(def.color)); truck.position.y = 1.2; g.add(truck);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.8), m(def.color * 0.8)); cab.position.set(-1.5, 2, 0); g.add(cab);
+    // Outriggers
+    [-1.4, 1.4].forEach(z => [-1.5, 1.5].forEach(x => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.3), grey); leg.position.set(x, 0.5, z); leg.name = "outrigger"; g.add(leg);
+    }));
+    // Wheels
+    [-1.5, 0, 1.5].forEach(x => [-1.1, 1.1].forEach(z => {
+      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12), dark); wh.rotation.x = Math.PI/2; wh.position.set(x, 0.4, z); g.add(wh);
+    }));
+    const boomPivot = new THREE.Group(); boomPivot.name = "boomPivot"; boomPivot.position.set(0.5, 2, 0);
+    const boom = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8, 0.4), m(def.color)); boom.position.y = 4; boomPivot.add(boom);
+    boomPivot.rotation.z = -0.5; g.add(boomPivot);
+
+  } else if (def.id === "bull") {
+    // Bulldozer
+    [-1, 1].forEach(z => { const t = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.7, 0.8), dark); t.position.set(0, 0.35, z); g.add(t); });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 2), m(def.color)); body.position.y = 1; g.add(body);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), m(def.color * 0.9)); cab.position.set(-0.3, 2, 0); g.add(cab);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.6, 3), m(def.color)); blade.position.set(-2.1, 0.8, 0); blade.name = "blade"; g.add(blade);
+    const ripper = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1, 0.8), grey); ripper.position.set(2, 0.2, 0); g.add(ripper);
+
+  } else if (def.id === "roller") {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.2, 1.6), m(def.color)); body.position.y = 1.2; g.add(body);
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 2, 16), grey); drum.rotation.x = Math.PI/2; drum.position.set(-1, 0.7, 0); drum.name = "drum"; g.add(drum);
+    const rear = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.4, 12), dark); rear.rotation.x = Math.PI/2; rear.position.set(1.2, 0.5, 0); g.add(rear);
+
+  } else if (def.id === "bobcat") {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 1.4), m(def.color)); body.position.y = 0.8; g.add(body);
+    [-0.6, 0.6].forEach(z => [-0.6, 0.6].forEach(x => {
+      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.25, 10), dark); wh.rotation.x = Math.PI/2; wh.position.set(x, 0.3, z); g.add(wh);
+    }));
+    const armPivot = new THREE.Group(); armPivot.name = "armPivot"; armPivot.position.set(-1, 0.8, 0);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 1.2), m(def.color)); arm.position.y = 0.75; armPivot.add(arm);
+    const bucket = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 1.2), grey); bucket.position.set(0, 1.5, 0); bucket.name = "bucket"; armPivot.add(bucket);
+    g.add(armPivot);
+
+  } else if (def.id === "dump") {
+    // Dump truck — high detail
+    const bodyMat = mat(def.color);
+    // Chassis frame
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.4, 1.8), frameMat()); chassis.position.y = 0.7; g.add(chassis);
+    // Cab
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.5, 1.9), bodyMat); cab.position.set(-1.7, 1.7, 0); g.add(cab);
+    const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 1.85), bodyMat); cabRoof.position.set(-1.7, 2.5, 0); g.add(cabRoof);
+    // Windows
+    const windshield = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9), glassMat()); windshield.position.set(-0.88, 2, 0); windshield.rotation.y = Math.PI / 2; g.add(windshield);
+    [-0.96, 0.96].forEach(z => {
+      const sw = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.8), glassMat()); sw.position.set(-1.7, 2, z); sw.rotation.y = z > 0 ? 0 : Math.PI; g.add(sw);
+    });
+    // Headlights
+    [-0.6, 0.6].forEach(z => {
+      const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 8), mat(0xffffcc, 0.2, 0.5)); hl.rotation.z = Math.PI / 2; hl.position.set(-2.55, 1.4, z); g.add(hl);
+    });
+    // Dump bed pivot
+    const bedPivot = new THREE.Group(); bedPivot.name = "bedPivot"; bedPivot.position.set(0.5, 0.95, 0);
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.3, 1.85), mat(0x556677, 0.7, 0.2)); bed.position.set(0, 0.65, 0); bedPivot.add(bed);
+    // Bed inner
+    const bedInner = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.05, 1.7), mat(0x665544, 0.9)); bedInner.position.set(0, 1.25, 0); bedPivot.add(bedInner);
+    // Tailgate
+    const tailgate = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.1, 1.85), mat(0x556677, 0.7, 0.2)); tailgate.position.set(1.8, 0.55, 0); bedPivot.add(tailgate);
+    // Hydraulic ram
+    addHydraulicCylinder(bedPivot, new THREE.Vector3(-1.5, 0, 0), new THREE.Vector3(-0.5, 1.2, 0));
+    g.add(bedPivot);
+    // Wheels (dual rear axle)
+    addWheel(g, -1.8, 0.45, -1.05); addWheel(g, -1.8, 0.45, 1.05);
+    [0.4, 1.4].forEach(x => [-1.05, -0.7, 0.7, 1.05].forEach(z => addWheel(g, x, 0.45, z, 0.42)));
+    // Mud flaps
+    [1.5].forEach(x => [-1.15, 1.15].forEach(z => {
+      const flap = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.4), mat(0x222222, 0.95)); flap.position.set(x, 0.2, z); g.add(flap);
+    }));
+
+  } else if (def.id === "flat") {
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(6, 0.6, 2), m(def.color)); chassis.position.y = 0.9; g.add(chassis);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.3, 1.8), m(def.color)); cab.position.set(-2, 1.8, 0); g.add(cab);
+    const flatbed = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.15, 2), m(0x554433)); flatbed.position.set(0.8, 1.3, 0); g.add(flatbed);
+    [-2, 0, 1.5].forEach(x => [-1.1, 1.1].forEach(z => {
+      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 12), dark); wh.rotation.x = Math.PI/2; wh.position.set(x, 0.45, z); wh.name = "wheel"; g.add(wh);
+    }));
+
+  } else if (def.id === "pump") {
+    // Concrete pump truck — 4-section boom
+    const bodyMat = mat(def.color);
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 2), frameMat()); chassis.position.y = 0.7; g.add(chassis);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.5, 1.9), bodyMat); cab.position.set(-2, 1.7, 0); g.add(cab);
+    const windshield = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9), glassMat()); windshield.position.set(-1.19, 2, 0); windshield.rotation.y = Math.PI / 2; g.add(windshield);
+    const body2 = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1, 1.9), bodyMat); body2.position.set(0.5, 1.2, 0); g.add(body2);
+    // Hopper
+    const hopper = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.2), metalMat(0x555555)); hopper.position.set(2.5, 1.6, 0); g.add(hopper);
+    // Outriggers (X-shape)
+    [-1.5, 1.5].forEach(z => [-1.2, 1.8].forEach(x => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1, 0.15), metalMat(0x555555)); leg.position.set(x, 0.2, z * 1.2); g.add(leg);
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.1, 8), metalMat(0x444444)); pad.position.set(x, -0.3, z * 1.2); g.add(pad);
+    }));
+    // 3-section boom
+    const boomPivot = new THREE.Group(); boomPivot.name = "boomPivot"; boomPivot.position.set(0.5, 1.8, 0);
+    const seg1 = new THREE.Mesh(new THREE.BoxGeometry(0.35, 6.5, 0.35), bodyMat); seg1.position.y = 3.25; boomPivot.add(seg1);
+    addHydraulicCylinder(boomPivot, new THREE.Vector3(-0.3, 0.5, 0), new THREE.Vector3(0, 4, 0));
+    const seg2Pivot = new THREE.Group(); seg2Pivot.name = "seg2Pivot"; seg2Pivot.position.y = 6.5;
+    const seg2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.5, 0.3), bodyMat); seg2.position.y = 2.75; seg2Pivot.add(seg2);
+    addHydraulicCylinder(seg2Pivot, new THREE.Vector3(0.2, 0, 0), new THREE.Vector3(0, 3, 0));
+    const seg3Pivot = new THREE.Group(); seg3Pivot.name = "seg3Pivot"; seg3Pivot.position.y = 5.5;
+    const seg3 = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4, 0.25), bodyMat); seg3.position.y = 2; seg3Pivot.add(seg3);
+    // Nozzle
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.08, 0.8, 8), mat(0x44aa44)); nozzle.position.y = 4; nozzle.name = "nozzle"; seg3Pivot.add(nozzle);
+    // Pipe along boom
+    [boomPivot, seg2Pivot, seg3Pivot].forEach(pivot => {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 5, 6), metalMat(0x888888)); pipe.position.set(0.2, 2.5, 0); pivot.add(pipe);
+    });
+    seg2Pivot.add(seg3Pivot); boomPivot.add(seg2Pivot);
+    boomPivot.rotation.z = -0.35;
+    g.add(boomPivot);
+    // Wheels
+    addWheel(g, -2, 0.45, -1.05); addWheel(g, -2, 0.45, 1.05);
+    [0.3, 1.5].forEach(x => [-1.05, 1.05].forEach(z => addWheel(g, x, 0.45, z, 0.42)));
+
+  } else if (def.id === "mixer") {
+    // Concrete mixer truck — high detail with rotating drum
+    const bodyMat = mat(def.color);
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 1.8), frameMat()); chassis.position.y = 0.7; g.add(chassis);
+    // Cab
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.5, 1.9), bodyMat); cab.position.set(-2, 1.7, 0); g.add(cab);
+    const windshield = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9), glassMat()); windshield.position.set(-1.19, 2, 0); windshield.rotation.y = Math.PI / 2; g.add(windshield);
+    // Drum cradle
+    const cradle = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.5, 1.5), frameMat()); cradle.position.set(0.5, 1.2, 0); g.add(cradle);
+    // Drum (tapered cylinder, tilted)
+    const drumGroup = new THREE.Group(); drumGroup.position.set(0.5, 2.5, 0); drumGroup.rotation.z = 0.2;
+    const drum = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 1.15, 3.8, 16), mat(0xdddddd, 0.4, 0.5)
+    ); drum.name = "drum"; drumGroup.add(drum);
+    // Spiral fins on drum (3 fins at 120 degrees)
+    [0, 2.09, 4.19].forEach(angle => {
+      const fin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.15), mat(def.color, 0.5, 0.3));
+      fin.position.set(Math.cos(angle) * 0.95, 0, Math.sin(angle) * 0.95);
+      fin.rotation.y = angle + 0.3;
+      drumGroup.add(fin);
+    });
+    g.add(drumGroup);
+    // Discharge chute
+    const chute = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 0.5), metalMat(0x666666)); chute.position.set(2.5, 2.8, 0); chute.rotation.z = -0.3; g.add(chute);
+    // Water tank
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.2, 10), mat(0x3388bb, 0.5, 0.2)); tank.rotation.z = Math.PI / 2; tank.position.set(-0.5, 1.2, 0.85); g.add(tank);
+    // Wheels
+    addWheel(g, -2, 0.45, -1.05); addWheel(g, -2, 0.45, 1.05);
+    [0.3, 1.3].forEach(x => [-1.05, -0.7, 0.7, 1.05].forEach(z => addWheel(g, x, 0.45, z, 0.42)));
+    // Exhaust
+    const exh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8), metalMat(0x333333)); exh.position.set(-1.3, 2.5, 0.8); g.add(exh);
+
+  } else if (def.id === "pile") {
+    const base = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1, 3), grey); base.position.y = 0.5; g.add(base);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.6, 16, 0.6), grey); mast.position.y = 8.5; g.add(mast);
+    // Mast bracing
+    for (let y = 2; y < 16; y += 3) {
+      const br = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.2), dark); br.position.set(0, y, 0.3); br.rotation.y = y % 6 === 0 ? 0.5 : -0.5; g.add(br);
+    }
+    const hammer = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3, 1.2), m(0x444444)); hammer.position.y = 14; hammer.name = "hammer"; g.add(hammer);
+    const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6, 8), m(0x886644)); pile.position.y = 3; pile.name = "pile"; g.add(pile);
+
+  } else if (def.id === "elev") {
+    // Construction elevator
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2, 20, 2), new THREE.MeshLambertMaterial({ color: 0x444444, wireframe: true }));
+    frame.position.y = 10; g.add(frame);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(0.3, 20, 0.3), grey); mast.position.set(0.8, 10, 0.8); g.add(mast);
+    const cage = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.5, 1.8), m(def.color)); cage.position.y = 2; cage.name = "cage"; g.add(cage);
+
+  } else if (def.id === "gen") {
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 1.2), m(def.color)); body.position.y = 0.8; g.add(body);
+    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8), dark); exhaust.position.set(0.8, 1.6, 0); g.add(exhaust);
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ff00 })); light.position.set(-0.8, 1.5, 0.6); light.name = "light"; g.add(light);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.3, 1.6), grey); frame.position.y = 0.15; g.add(frame);
+
+  } else if (def.id === "rebar") {
+    const table = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 1.2), m(def.color)); table.position.y = 0.4; g.add(table);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8), grey); arm.position.set(0, 1.2, 0); arm.rotation.z = 0.3; g.add(arm);
+    // Rebar piece
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2, 6), m(0x884422)); bar.position.set(0.5, 0.9, 0); bar.rotation.z = Math.PI/2; g.add(bar);
+  }
+
+  // Scale procedural mesh to match real-world size on the map
+  // Procedural meshes are authored at roughly 1 unit = 1 meter
+  const proceduralScale = 1 / _metersPerUnit;
+  g.scale.setScalar(proceduralScale);
+  g.position.set(px, _terrainHeightFn(px, pz), pz);
+  g.castShadow = true;
+  return g;
+}
+
+/* ═══════════════════════════════════════════════
+   ANIMATION SYSTEM
+   ═══════════════════════════════════════════════ */
+function initAnimState(id: string): Record<string, number> {
+  return { t: Math.random() * 100, pathT: 0, phase: 0 };
+}
+
+function animateEquipment(eq: PlacedEq, dt: number) {
+  const s = eq.animState;
+  s.t += dt;
+  const mesh = eq.mesh;
+
+  // Path following (for vehicles)
+  if (eq.pathCurve && eq.path && eq.path.length > 1) {
+    s.pathT = (s.pathT + dt * 0.05) % 1;
+    const p = eq.pathCurve.getPoint(s.pathT);
+    const ahead = eq.pathCurve.getPoint((s.pathT + 0.01) % 1);
+    mesh.position.set(p.x, _terrainHeightFn(p.x, p.z), p.z);
+    mesh.lookAt(ahead.x, _terrainHeightFn(ahead.x, ahead.z), ahead.z);
+    // Rotate wheels
+    mesh.traverse(c => { if (c.name === "wheel") (c as THREE.Mesh).rotation.x += dt * 5; });
+  }
+
+  const id = eq.def.id;
+
+  if (id === "exc-l" || id === "exc-s") {
+    const cabin = mesh.getObjectByName("cabinPivot") as THREE.Object3D;
+    const boom = mesh.getObjectByName("boomPivot") as THREE.Object3D;
+    const stick = mesh.getObjectByName("stickPivot") as THREE.Object3D;
+    const bucket = mesh.getObjectByName("bucketPivot") as THREE.Object3D;
+    if (cabin) cabin.rotation.y = Math.sin(s.t * 0.3) * 1.2;
+    if (boom) boom.rotation.z = -0.2 + Math.sin(s.t * 0.5) * 0.4;
+    if (stick) stick.rotation.z = 0.3 + Math.sin(s.t * 0.5 + 1) * 0.5;
+    if (bucket) bucket.rotation.z = -0.2 + Math.sin(s.t * 0.5 + 2) * 0.6;
+
+  } else if (id === "crane-t") {
+    const boomG = mesh.getObjectByName("boomGroup") as THREE.Object3D;
+    const hook = mesh.getObjectByName("hook") as THREE.Object3D;
+    const cable = mesh.getObjectByName("cable") as THREE.Object3D;
+    if (boomG) boomG.rotation.y = s.t * 0.15;
+    if (hook) hook.position.y = -8 + Math.sin(s.t * 0.4) * 2;
+    if (cable) { cable.position.y = -4 + Math.sin(s.t * 0.4) * 1; cable.scale.y = 1 - Math.sin(s.t * 0.4) * 0.2; }
+
+  } else if (id === "crane-c") {
+    const cabin = mesh.getObjectByName("cabinPivot") as THREE.Object3D;
+    const hook = mesh.getObjectByName("hook") as THREE.Object3D;
+    if (cabin) cabin.rotation.y = Math.sin(s.t * 0.2) * 1.5;
+    if (hook) hook.position.y = -6 + Math.sin(s.t * 0.3) * 2;
+
+  } else if (id === "crane-k") {
+    const boom = mesh.getObjectByName("boomPivot") as THREE.Object3D;
+    if (boom) {
+      boom.rotation.y = Math.sin(s.t * 0.2) * 1;
+      boom.rotation.z = -0.5 + Math.sin(s.t * 0.15) * 0.2;
+    }
+
+  } else if (id === "bull") {
+    const blade = mesh.getObjectByName("blade") as THREE.Object3D;
+    if (blade) blade.position.y = 0.8 + Math.sin(s.t * 0.6) * 0.3;
+    if (!eq.pathCurve) {
+      mesh.position.x += Math.sin(s.t * 0.3) * dt * 2;
+      mesh.position.y = _terrainHeightFn(mesh.position.x, mesh.position.z);
+    }
+
+  } else if (id === "roller") {
+    const drum = mesh.getObjectByName("drum") as THREE.Object3D;
+    if (drum) drum.rotation.z += dt * 3;
+    if (!eq.pathCurve) {
+      mesh.position.x += Math.sin(s.t * 0.4) * dt * 1.5;
+      mesh.position.y = _terrainHeightFn(mesh.position.x, mesh.position.z);
+    }
+
+  } else if (id === "bobcat") {
+    const arm = mesh.getObjectByName("armPivot") as THREE.Object3D;
+    if (arm) arm.rotation.z = Math.sin(s.t * 0.5) * 0.5;
+    if (!eq.pathCurve) {
+      mesh.position.x += Math.sin(s.t * 0.35) * dt * 1.5;
+      mesh.position.y = _terrainHeightFn(mesh.position.x, mesh.position.z);
+    }
+
+  } else if (id === "dump") {
+    const bed = mesh.getObjectByName("bedPivot") as THREE.Object3D;
+    if (bed) {
+      // Periodic dump: every 8s raise bed, then lower
+      const cycle = s.t % 8;
+      bed.rotation.z = cycle > 5 ? Math.min((cycle - 5) * 0.3, 0.7) : cycle > 7 ? Math.max(0.7 - (cycle - 7) * 0.7, 0) : 0;
+    }
+
+  } else if (id === "pump") {
+    const boom = mesh.getObjectByName("boomPivot") as THREE.Object3D;
+    const seg2 = mesh.getObjectByName("seg2Pivot") as THREE.Object3D;
+    if (boom) {
+      boom.rotation.y = Math.sin(s.t * 0.2) * 0.8;
+      boom.rotation.z = -0.4 + Math.sin(s.t * 0.15) * 0.15;
+    }
+    if (seg2) seg2.rotation.z = Math.sin(s.t * 0.25 + 1) * 0.3;
+
+  } else if (id === "mixer") {
+    const drum = mesh.getObjectByName("drum") as THREE.Object3D;
+    if (drum) drum.rotation.y += dt * 1.5;
+
+  } else if (id === "pile") {
+    const hammer = mesh.getObjectByName("hammer") as THREE.Object3D;
+    if (hammer) {
+      const cycle = s.t % 2;
+      if (cycle < 1.2) hammer.position.y = 14 - cycle * 2; // slow raise
+      else { // fast drop
+        const drop = (cycle - 1.2) * 15;
+        hammer.position.y = Math.max(11.6 - drop, 4);
+        if (hammer.position.y <= 4.1 && s.phase === 0) {
+          s.phase = 1;
+          spawnDust(mesh.position.clone());
+        }
+      }
+      if (cycle < 0.1) s.phase = 0;
+    }
+
+  } else if (id === "elev") {
+    const cage = mesh.getObjectByName("cage") as THREE.Object3D;
+    if (cage) cage.position.y = 2 + (Math.sin(s.t * 0.3) + 1) * 8;
+
+  } else if (id === "gen") {
+    const light = mesh.getObjectByName("light") as THREE.Mesh;
+    if (light) {
+      const on = Math.sin(s.t * 3) > 0;
+      (light.material as THREE.MeshBasicMaterial).color.setHex(on ? 0x00ff00 : 0x003300);
+    }
+  }
+}
+
+function spawnDust(pos: THREE.Vector3) {
+  if (!_scene) return;
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.5, 3, 16),
+    new THREE.MeshBasicMaterial({ color: 0xaa9977, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+  );
+  ring.position.copy(pos);
+  ring.position.y += 0.2;
+  ring.rotation.x = -Math.PI / 2;
+  _scene.add(ring);
+  const start = performance.now();
+  function anim() {
+    const elapsed = (performance.now() - start) / 1000;
+    if (elapsed > 0.8) { _scene.remove(ring); ring.geometry.dispose(); return; }
+    ring.scale.setScalar(1 + elapsed * 3);
+    (ring.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - elapsed / 0.8);
+    requestAnimationFrame(anim);
+  }
+  anim();
+}
+
+/* ═══════════════════════════════════════════════
+   MOCK SCHEDULE (kept from original)
+   ═══════════════════════════════════════════════ */
+function mockSchedule(equipment: PlacedEq[]) {
+  const counts: Record<string, number> = {};
+  equipment.forEach(e => { counts[e.def.cat] = (counts[e.def.cat] || 0) + 1; });
+  const acts: { id: string; name: string; dur: number; es: number; ef: number; crit: boolean }[] = [];
+  let day = 0;
+  if (counts.earth) { acts.push({ id:"A1", name:"場地整備", dur:14, es:0, ef:14, crit:true }); day = 14; }
+  if (equipment.some(e => e.def.id === "pile")) { acts.push({ id:"A2", name:"基樁施工", dur:30, es:day, ef:day+30, crit:true }); day += 30; }
+  if (equipment.some(e => e.def.id.startsWith("exc"))) { acts.push({ id:"A3", name:"土方開挖", dur:20, es:day, ef:day+20, crit:true }); day += 20; }
+  acts.push({ id:"A4", name:"基礎放樣", dur:7, es:day, ef:day+7, crit:true }); day += 7;
+  const hasPump = equipment.some(e => e.def.id === "pump");
+  acts.push({ id:"A5", name:"基礎混凝土", dur:hasPump?8:15, es:day, ef:day+(hasPump?8:15), crit:true }); day += hasPump?8:15;
+  acts.push({ id:"A6", name:"地下室結構", dur:25, es:day, ef:day+25, crit:true }); day += 25;
+  const hasCrane = equipment.some(e => e.def.id.startsWith("crane"));
+  if (hasCrane) {
+    acts.push({ id:"A7", name:"結構吊裝", dur:35, es:day, ef:day+35, crit:true });
+    acts.push({ id:"A8", name:"RC 樓板", dur:20, es:day+5, ef:day+25, crit:false }); day += 35;
+  } else {
+    acts.push({ id:"A7", name:"地上層施工", dur:40, es:day, ef:day+40, crit:true }); day += 40;
+  }
+  acts.push({ id:"A9", name:"水電管路", dur:20, es:day-10, ef:day+10, crit:false });
+  acts.push({ id:"A10", name:"外牆完成", dur:15, es:day, ef:day+15, crit:true }); day += 15;
+  acts.push({ id:"A11", name:"室內裝修", dur:25, es:day, ef:day+25, crit:true }); day += 25;
+  acts.push({ id:"A12", name:"驗收交屋", dur:7, es:day, ef:day+7, crit:true }); day += 7;
+  return {
+    cpm_result: { total_duration: day, activities: acts.map(a => ({ ...a, duration_days: a.dur, early_start: a.es, early_finish: a.ef, total_float: a.crit ? 0 : Math.floor(Math.random()*8)+3, is_critical: a.crit })) },
+    ai_assumptions: [`${equipment.length} 台機具同時運作`, "依標準 RC 工法"],
+    ai_risks: [{ severity: "medium", description: "雨季土方效率降低，建議備援 10 天" }, { severity: "low", description: "機具調度衝突" }],
+  };
+}
+
+function renderGantt(data: any) {
+  const acts = data.cpm_result?.activities || [];
+  if (!acts.length) return "<p style='color:#556;font-size:12px'>無資料</p>";
+  const total = Math.max(...acts.map((a: any) => a.early_finish || 0), 1);
+  return `<div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px;color:#778;padding-bottom:6px;border-bottom:1px solid #243040">
+    <span>總工期 <b>${total}</b>天</span><span style="color:#ef4444">關鍵 <b>${acts.filter((a: any) => a.is_critical).length}</b>項</span><span>共 <b>${acts.length}</b>活動</span>
+  </div>` + acts.map((a: any) => {
+    const sp = ((a.early_start||0)/total*100).toFixed(1), wp = ((a.duration_days||0)/total*100).toFixed(1);
+    const col = a.is_critical ? "#ef4444" : "#3b82f6";
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px">
+      <div style="width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#7788aa;font-size:10px;flex-shrink:0">${a.name}</div>
+      <div style="flex:1;height:12px;background:#111d2a;border-radius:3px;position:relative;overflow:hidden">
+        <div style="position:absolute;left:${sp}%;width:${wp}%;height:100%;background:${col};border-radius:3px"></div>
+      </div>
+      <div style="width:26px;text-align:right;color:#556;font-size:10px">${a.duration_days}天</div></div>`;
+  }).join("") + (data.ai_risks || []).slice(0,2).map((r: any) => {
+    const tc = r.severity === "high" ? "#fca5a5" : "#fcd34d";
+    return `<div style="font-size:10px;color:#778;margin-top:4px"><span style="font-size:9px;padding:1px 4px;border-radius:3px;background:#1a1a1a;color:${tc}">${r.severity.toUpperCase()}</span> ${r.description}</div>`;
+  }).join("");
+}
+
+/* ═══════════════════════════════════════════════
+   SCENE INIT
+   ═══════════════════════════════════════════════ */
+async function initScene(canvas: HTMLCanvasElement) {
+  const W = canvas.clientWidth || 800, H = canvas.clientHeight || 520;
+  _renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  _renderer.setSize(W, H);
+  _renderer.setPixelRatio(Math.min(devicePixelRatio, window.innerWidth < 800 ? 1.5 : 2));
+  _renderer.shadowMap.enabled = true;
+  _renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  _renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  _renderer.toneMappingExposure = 0.9;
+  _renderer.setClearColor(0x1a2332);
+
+  _scene = new THREE.Scene();
+  _scene.fog = new THREE.FogExp2(0x1a2332, 0.008);
+
+  _camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 500);
+  _camera.position.set(0, 28, 48);
+
+  _controls = new OrbitControls(_camera, canvas);
+  _controls.enableDamping = true;
+  _controls.dampingFactor = 0.08;
+  _controls.minDistance = 8;
+  _controls.maxDistance = 120;
+  _controls.maxPolarAngle = Math.PI / 2.1;
+  _controls.target.set(0, 2, 0);
+
+  // Lights — stronger for PBR materials
+  _scene.add(new THREE.AmbientLight(0x889aaa, 2.2));
+  const sun = new THREE.DirectionalLight(0xfff5dd, 4);
+  sun.position.set(30, 50, 25);
+  sun.castShadow = true;
+  sun.shadow.mapSize.setScalar(2048);
+  sun.shadow.camera.far = 120;
+  sun.shadow.camera.left = -50; sun.shadow.camera.right = 50;
+  sun.shadow.camera.top = 50; sun.shadow.camera.bottom = -50;
+  _scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x6688bb, 1.2);
+  fill.position.set(-20, 30, -15);
+  _scene.add(fill);
+  // Hemisphere light for natural outdoor feel
+  _scene.add(new THREE.HemisphereLight(0x87ceeb, 0x362a1a, 1));
+
+  // Default procedural terrain
+  const seg = window.innerWidth < 800 ? 40 : 50;
+  const tgeo = new THREE.PlaneGeometry(80, 80, seg, seg);
+  tgeo.rotateX(-Math.PI / 2);
+  const pos = tgeo.attributes.position;
+  const cb = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), y = terrainY(x, z);
+    pos.setY(i, y);
+    const t = Math.min(1, Math.max(0, (y + 3) / 8));
+    cb[i * 3] = 0.10 + t * 0.28; cb[i * 3 + 1] = 0.28 + t * 0.22; cb[i * 3 + 2] = 0.08 + t * 0.06;
+  }
+  tgeo.setAttribute("color", new THREE.BufferAttribute(cb, 3));
+  tgeo.computeVertexNormals();
+  _terrain = new THREE.Mesh(tgeo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  _terrain.receiveShadow = true;
+  _scene.add(_terrain);
+  _scene.add(new THREE.GridHelper(80, 40, 0x2a3a2a, 0x1e2e1e));
+
+  // Ghost ring
+  _ghostMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.2, 2.2, 0.15, 24),
+    new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.35 })
+  );
+  _ghostMesh.visible = false;
+  _scene.add(_ghostMesh);
+
+  // Raycasting
+  const rc = new THREE.Raycaster(), mouse = new THREE.Vector2();
+  function getHit(e: MouseEvent): THREE.Vector3 | null {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    rc.setFromCamera(mouse, _camera);
+    const hits = rc.intersectObject(_terrain!);
+    return hits.length > 0 ? hits[0].point : null;
+  }
+
+  canvas.addEventListener("mousemove", e => {
+    const p = getHit(e);
+    if (_toolMode === "place" && _selectedEqId && p) {
+      _ghostMesh.position.set(p.x, p.y + 0.1, p.z);
+      _ghostMesh.visible = true;
+    } else if ((_toolMode === "path" || _toolMode === "area") && p) {
+      _ghostMesh.position.set(p.x, p.y + 0.1, p.z);
+      _ghostMesh.visible = true;
+      ((_ghostMesh.material as THREE.MeshBasicMaterial).color as THREE.Color).setHex(_toolMode === "path" ? 0x00aaff : 0xff8800);
+    } else {
+      _ghostMesh.visible = false;
+    }
+  });
+  canvas.addEventListener("mousedown", e => { _dragStartX = e.clientX; _dragStartY = e.clientY; _isDragging = false; });
+  canvas.addEventListener("mousemove", e => {
+    if (Math.sqrt((e.clientX - _dragStartX) ** 2 + (e.clientY - _dragStartY) ** 2) > 4) _isDragging = true;
+  }, { passive: true });
+  canvas.addEventListener("click", async (e) => {
+    if (_isDragging) return;
+    const p = getHit(e);
+    if (!p) return;
+
+    if (_toolMode === "place" && _selectedEqId) {
+      const def = EQ.find(eq => eq.id === _selectedEqId);
+      if (!def) return;
+      const mesh = await buildEquipmentMesh(def, p.x, p.z);
+      _scene.add(mesh);
+      // Assign nearest path if available
+      let bestPath: typeof _drawnPaths[0] | null = null, bestDist = 20;
+      _drawnPaths.forEach(dp => {
+        dp.points.forEach(pt => {
+          const d = pt.distanceTo(p);
+          if (d < bestDist) { bestDist = d; bestPath = dp; }
+        });
+      });
+      const eq: PlacedEq = { mesh, def, animState: initAnimState(def.id) };
+      if (bestPath) { eq.path = bestPath.points; eq.pathCurve = bestPath.curve; }
+      _placed.push(eq);
+      (window as any)._simUpdate?.();
+
+    } else if (_toolMode === "path") {
+      _pathPoints.push(p.clone());
+      updatePathPreview();
+
+    } else if (_toolMode === "area") {
+      _areaPoints.push(p.clone());
+      updateAreaPreview();
+
+    } else if (_toolMode === "delete") {
+      // Delete nearest equipment
+      let bestIdx = -1, bestDist = 5;
+      _placed.forEach((eq, i) => {
+        const d = eq.mesh.position.distanceTo(p);
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      });
+      if (bestIdx >= 0) {
+        _scene.remove(_placed[bestIdx].mesh);
+        _placed.splice(bestIdx, 1);
+        (window as any)._simUpdate?.();
+      }
+    }
+  });
+  canvas.addEventListener("contextmenu", e => {
+    e.preventDefault();
+    if (_toolMode === "path" && _pathPoints.length > 1) finalizePath();
+    if (_toolMode === "area" && _areaPoints.length > 2) finalizeArea();
+  });
+  canvas.addEventListener("mouseleave", () => { _ghostMesh.visible = false; });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") { _selectedEqId = null; _toolMode = "place"; } });
+
+  // Render loop
+  function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now();
+    const dt = Math.min((now - _lastTime) / 1000, 0.1);
+    _lastTime = now;
+    _placed.forEach(eq => animateEquipment(eq, dt));
+    _animMixers.forEach(m => m.update(dt));
+    _controls.update();
+    _renderer!.render(_scene, _camera);
+  }
+  animate();
+
+  new ResizeObserver(() => {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    _renderer!.setSize(w, h, false);
+    _camera.aspect = w / h;
+    _camera.updateProjectionMatrix();
+  }).observe(canvas);
+}
+
+/* ═══════════════════════════════════════════════
+   PATH & AREA DRAWING
+   ═══════════════════════════════════════════════ */
+function updatePathPreview() {
+  if (_pathLine) _scene.remove(_pathLine);
+  if (_pathPoints.length < 2) return;
+  const geo = new THREE.BufferGeometry().setFromPoints(_pathPoints.map(p => new THREE.Vector3(p.x, p.y + 0.3, p.z)));
+  _pathLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x00aaff, linewidth: 2 }));
+  _scene.add(_pathLine);
+  // Arrow markers
+  for (let i = 0; i < _pathPoints.length; i++) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00aaff }));
+    dot.position.copy(_pathPoints[i]).add(new THREE.Vector3(0, 0.3, 0));
+    _pathLine.add(dot);
+  }
+}
+
+function finalizePath() {
+  if (_pathPoints.length < 2) return;
+  const pts = _pathPoints.map(p => new THREE.Vector3(p.x, _terrainHeightFn(p.x, p.z), p.z));
+  const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.5);
+  // Draw smooth curve
+  const smoothPts = curve.getPoints(50).map(p => new THREE.Vector3(p.x, p.y + 0.3, p.z));
+  if (_pathLine) _scene.remove(_pathLine);
+  const geo = new THREE.BufferGeometry().setFromPoints(smoothPts);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x00aaff }));
+  _scene.add(line);
+  _drawnPaths.push({ points: pts, line, curve });
+  _pathPoints = [];
+  _pathLine = null;
+}
+
+function updateAreaPreview() {
+  if (_areaMesh) _scene.remove(_areaMesh);
+  if (_areaPoints.length < 3) return;
+  const shape = new THREE.Shape(_areaPoints.map(p => new THREE.Vector2(p.x, p.z)));
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  _areaMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.2, side: THREE.DoubleSide }));
+  _areaMesh.position.y = (_areaPoints.reduce((s, p) => s + p.y, 0) / _areaPoints.length) + 0.2;
+  _scene.add(_areaMesh);
+}
+
+function finalizeArea() {
+  if (_areaPoints.length < 3) return;
+  const shape = new THREE.Shape(_areaPoints.map(p => new THREE.Vector2(p.x, p.z)));
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  if (_areaMesh) _scene.remove(_areaMesh);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.15, side: THREE.DoubleSide }));
+  mesh.position.y = (_areaPoints.reduce((s, p) => s + p.y, 0) / _areaPoints.length) + 0.2;
+  _scene.add(mesh);
+  // Border line
+  const borderPts = [..._areaPoints, _areaPoints[0]].map(p => new THREE.Vector3(p.x, p.y + 0.3, p.z));
+  const border = new THREE.Line(new THREE.BufferGeometry().setFromPoints(borderPts), new THREE.LineBasicMaterial({ color: 0xff8800 }));
+  _scene.add(border);
+  _drawnAreas.push({ points: _areaPoints.slice(), mesh });
+  _areaPoints = [];
+  _areaMesh = null;
+}
+
+/* ═══════════════════════════════════════════════
+   SATELLITE TERRAIN SWAP
+   ═══════════════════════════════════════════════ */
+async function swapToSatellite(lng: number, lat: number) {
+  const old = _terrain;
+  const { mesh, heightAt } = await buildSatelliteTerrain(lng, lat);
+  if (old) { _scene.remove(old); (old.geometry as THREE.BufferGeometry).dispose(); }
+  _terrain = mesh;
+  _terrainHeightFn = heightAt;
+  _scene.add(_terrain);
+}
+
+/* ═══════════════════════════════════════════════
+   UI BUILDER
+   ═══════════════════════════════════════════════ */
+function buildUI(container: HTMLElement) {
+  container.innerHTML = `
+  <style>
+    .sim-grid { display:grid; grid-template-columns:200px 1fr 260px; height:640px; font-family:system-ui,sans-serif; }
+    .sim-left { background:#111820; overflow-y:auto; border-right:1px solid #243040; display:flex; flex-direction:column; }
+    .sim-center { position:relative; overflow:hidden; }
+    .sim-right { background:#111820; overflow-y:auto; border-left:1px solid #243040; padding:12px; display:flex; flex-direction:column; gap:10px; }
+    .sim-canvas { width:100%; height:100%; display:block; }
+    /* Map overlay */
+    .smap { position:absolute; inset:0; z-index:10; background:#1a2332; display:flex; flex-direction:column; transition:opacity .5s; }
+    .smap.hidden { opacity:0; pointer-events:none; }
+    .smap-bar { display:flex; gap:8px; padding:8px 10px; background:#111d2a; border-bottom:1px solid #243040; }
+    .smap-bar input { flex:1; padding:6px 10px; background:#0d1520; border:1px solid #243040; border-radius:6px; color:#ccd; font-size:12px; outline:none; }
+    .smap-bar input:focus { border-color:#f97316; }
+    .smap-bar button { padding:6px 14px; background:#f97316; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer; font-weight:600; white-space:nowrap; }
+    .smap-bar button:hover { background:#fb923c; }
+    .smap-bar button:disabled { background:#2a3444; color:#445; cursor:not-allowed; }
+    .smap-bar button.secondary { background:#243040; color:#aab; }
+    .smap-bar button.secondary:hover { background:#2a3a4a; }
+    .smap-map { flex:1; }
+    .smap-hint { font-size:10px; color:#556; padding:6px 10px; background:#0d1520; text-align:center; }
+    /* Toolbar */
+    .stoolbar { display:flex; gap:4px; padding:6px 8px; background:#0d1520; border-bottom:1px solid #243040; }
+    .stool { padding:4px 10px; font-size:11px; border:1px solid #243040; background:#111d2a; color:#8899aa; border-radius:4px; cursor:pointer; transition:all .2s; }
+    .stool:hover { border-color:#556; color:#ccd; }
+    .stool.active { border-color:#f97316; color:#f97316; background:#1a1510; }
+    /* Category */
+    .scat { padding:4px 10px; font-size:10px; font-weight:700; color:#556; text-transform:uppercase; letter-spacing:1px; margin-top:8px; }
+    .scat:first-child { margin-top:4px; }
+    /* Equipment item */
+    .seqi { padding:6px 10px; cursor:pointer; transition:all .2s; border-left:3px solid transparent; }
+    .seqi:hover { background:#1a2030; }
+    .seqi.active { background:#1a1510; border-color:#f97316; }
+    .seqi-name { font-size:12px; color:#ccd; font-weight:600; }
+    .seqi-sub { font-size:10px; color:#556; }
+    /* Placed list */
+    .spl { border-top:1px solid #243040; margin-top:auto; padding:6px; }
+    .spl-title { font-size:10px; color:#556; font-weight:700; padding:4px; }
+    .spl-item { display:flex; align-items:center; justify-content:space-between; padding:3px 6px; font-size:10px; color:#8899aa; }
+    .spl-del { color:#f44; cursor:pointer; font-size:12px; }
+    /* Tips */
+    .stip { position:absolute; bottom:8px; left:8px; font-size:10px; color:#445566; background:rgba(0,0,0,0.5); padding:3px 8px; border-radius:4px; pointer-events:none; }
+    .scur { position:absolute; top:8px; right:8px; font-size:11px; color:#f97316; background:rgba(0,0,0,0.6); padding:4px 10px; border-radius:6px; pointer-events:none; }
+    /* Schedule button */
+    .ssbtn { padding:10px; background:#f97316; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
+    .ssbtn:hover { background:#fb923c; }
+    .ssbtn:disabled { background:#333; color:#555; cursor:not-allowed; }
+    .srt { font-size:11px; font-weight:700; color:#aab; }
+    .srp { flex:1; overflow-y:auto; }
+    @media(max-width:800px) {
+      .sim-grid { grid-template-columns:1fr; height:auto; }
+      .sim-left,.sim-right { display:none; }
+    }
+  </style>
+  <div class="sim-grid">
+    <div class="sim-left">
+      <div class="stoolbar" id="_toolbar">
+        <button class="stool active" data-mode="place" title="放置機具">🏗 放置</button>
+        <button class="stool" data-mode="path" title="繪製路徑">🛤 路徑</button>
+        <button class="stool" data-mode="area" title="框選區域">📐 區域</button>
+        <button class="stool" data-mode="delete" title="刪除">🗑</button>
+      </div>
+      <div id="_eqList"></div>
+      <div class="spl" id="_placedList">
+        <div class="spl-title">已放置</div>
+      </div>
+    </div>
+    <div class="sim-center">
+      <div class="smap" id="_mapOverlay">
+        <div class="smap-bar">
+          <input type="text" id="_addrInput" placeholder="輸入地址或座標 (例: 台北市信義路五段7號)" />
+          <button id="_searchBtn">搜尋</button>
+        </div>
+        <div class="smap-map" id="_mapContainer"></div>
+        <div class="smap-hint">拖曳地圖選擇工地位置 · 點擊大頭針定位</div>
+        <div class="smap-bar" style="justify-content:center">
+          <button id="_genBtn">🛰 生成 3D 衛星地形</button>
+          <button id="_defaultBtn" class="secondary">使用預設地形</button>
+        </div>
+      </div>
+      <canvas class="sim-canvas" id="_simCanvas"></canvas>
+      <div class="stip">拖曳旋轉 · 滾輪縮放 · 右鍵平移 · 右鍵完成繪製</div>
+      <div class="scur" id="_curTip" style="display:none"></div>
+    </div>
+    <div class="sim-right">
+      <div class="srt">AI 排程分析</div>
+      <button class="ssbtn" id="_schedBtn" disabled>⚡ AI 自動排程</button>
+      <div style="font-size:10px;color:#445">放置機具後點擊排程</div>
+      <div class="srp" id="_ganttArea"><div style="color:#334;font-size:11px">尚無排程資料</div></div>
+    </div>
+  </div>`;
+
+  // Wire toolbar
+  document.querySelectorAll("#_toolbar .stool").forEach(btn => {
+    btn.addEventListener("click", () => {
+      _toolMode = (btn as HTMLElement).dataset.mode as any;
+      document.querySelectorAll("#_toolbar .stool").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      _selectedEqId = null;
+      document.querySelectorAll(".seqi").forEach(e => e.classList.remove("active"));
+      const tip = document.getElementById("_curTip");
+      if (tip) {
+        if (_toolMode === "path") { tip.style.display = "block"; tip.textContent = "點擊地形加點 · 右鍵完成路徑"; }
+        else if (_toolMode === "area") { tip.style.display = "block"; tip.textContent = "點擊地形加頂點 · 右鍵完成區域"; }
+        else if (_toolMode === "delete") { tip.style.display = "block"; tip.textContent = "點擊機具刪除"; }
+        else tip.style.display = "none";
+      }
+    });
+  });
+
+  // Build equipment list by category
+  const eqList = document.getElementById("_eqList")!;
+  const cats = [...new Set(EQ.map(e => e.cat))];
+  cats.forEach(cat => {
+    const catDiv = document.createElement("div"); catDiv.className = "scat"; catDiv.textContent = CATS[cat] || cat;
+    eqList.appendChild(catDiv);
+    EQ.filter(e => e.cat === cat).forEach(eq => {
+      const div = document.createElement("div"); div.className = "seqi"; div.dataset.id = eq.id;
+      div.innerHTML = `<div class="seqi-name">${eq.name}</div><div class="seqi-sub">${eq.task} · ${eq.duration}天</div>`;
+      div.addEventListener("click", () => {
+        _toolMode = "place";
+        document.querySelectorAll("#_toolbar .stool").forEach(b => b.classList.remove("active"));
+        document.querySelector('#_toolbar .stool[data-mode="place"]')?.classList.add("active");
+        _selectedEqId = _selectedEqId === eq.id ? null : eq.id;
+        document.querySelectorAll(".seqi").forEach(e => e.classList.remove("active"));
+        if (_selectedEqId) div.classList.add("active");
+        const tip = document.getElementById("_curTip");
+        if (tip) { tip.style.display = _selectedEqId ? "block" : "none"; tip.textContent = `點擊地形放置 ${eq.name}`; }
+      });
+      eqList.appendChild(div);
+    });
+  });
+
+  // Update function
+  (window as any)._simUpdate = () => {
+    const pl = document.getElementById("_placedList")!;
+    pl.innerHTML = `<div class="spl-title">已放置 (${_placed.length})</div>` +
+      _placed.map((eq, i) => `<div class="spl-item"><span>${eq.def.name}</span><span class="spl-del" onclick="window._sDel(${i})">✕</span></div>`).join("");
+    const btn = document.getElementById("_schedBtn") as HTMLButtonElement;
+    if (btn) btn.disabled = _placed.length === 0;
+  };
+  (window as any)._sDel = (idx: number) => {
+    if (_placed[idx]) { _scene.remove(_placed[idx].mesh); _placed.splice(idx, 1); }
+    (window as any)._simUpdate?.();
+  };
+
+  // Schedule button
+  document.getElementById("_schedBtn")?.addEventListener("click", async () => {
+    const btn = document.getElementById("_schedBtn") as HTMLButtonElement;
+    const area = document.getElementById("_ganttArea")!;
+    btn.disabled = true; btn.textContent = "⏳ AI 分析中…";
+    area.innerHTML = '<div style="color:#f97316;font-size:12px">分析機具配置與排程…</div>';
+    await new Promise(r => setTimeout(r, 1200));
+    const data = mockSchedule(_placed);
+    area.innerHTML = renderGantt(data);
+    btn.disabled = false; btn.textContent = "⚡ AI 自動排程";
+  });
+
+  // Map picker
+  initMapPicker();
+
+  // Init 3D scene (behind the map overlay)
+  const canvas = document.getElementById("_simCanvas") as HTMLCanvasElement;
+  if (canvas) initScene(canvas);
+}
+
+/* ═══════════════════════════════════════════════
+   MAP PICKER (MapLibre — open source, no token)
+   ═══════════════════════════════════════════════ */
+async function initMapPicker() {
+  // Inject MapLibre CSS
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css";
+  document.head.appendChild(link);
+
+  const maplibregl = await import("maplibre-gl");
+
+  const map = new maplibregl.Map({
+    container: "_mapContainer",
+    style: {
+      version: 8,
+      sources: {
+        osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "OpenStreetMap" },
+        satellite: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, attribution: "Esri" },
+      },
+      layers: [
+        { id: "satellite", type: "raster", source: "satellite" },
+        { id: "osm-labels", type: "raster", source: "osm", paint: { "raster-opacity": 0.35 } },
+      ],
+    },
+    center: [121.5654, 25.0330],
+    zoom: 15,
+  });
+
+  const marker = new maplibregl.Marker({ draggable: true, color: "#f97316" })
+    .setLngLat([121.5654, 25.0330])
+    .addTo(map);
+
+  // Search
+  document.getElementById("_searchBtn")?.addEventListener("click", async () => {
+    const input = document.getElementById("_addrInput") as HTMLInputElement;
+    const q = input.value.trim();
+    if (!q) return;
+    try {
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+      const data = await resp.json();
+      if (data[0]) {
+        const lng = parseFloat(data[0].lon), lat = parseFloat(data[0].lat);
+        map.flyTo({ center: [lng, lat], zoom: 16 });
+        marker.setLngLat([lng, lat]);
+      }
+    } catch { /* ignore */ }
+  });
+  document.getElementById("_addrInput")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") document.getElementById("_searchBtn")?.click();
+  });
+
+  // Generate terrain
+  document.getElementById("_genBtn")?.addEventListener("click", async () => {
+    const btn = document.getElementById("_genBtn") as HTMLButtonElement;
+    btn.disabled = true; btn.textContent = "🛰 擷取衛星資料中…";
+    try {
+      const ll = marker.getLngLat();
+      await swapToSatellite(ll.lng, ll.lat);
+      document.getElementById("_mapOverlay")?.classList.add("hidden");
+    } catch (err) {
+      btn.textContent = "❌ 擷取失敗，請重試";
+      btn.disabled = false;
+      console.error(err);
+    }
+  });
+
+  // Default terrain
+  document.getElementById("_defaultBtn")?.addEventListener("click", () => {
+    document.getElementById("_mapOverlay")?.classList.add("hidden");
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   ENTRY POINT
+   ═══════════════════════════════════════════════ */
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.getElementById("sim-container");
+  if (container) buildUI(container);
+});
+</script>

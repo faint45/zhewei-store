@@ -1,0 +1,61 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="付款結果" description="築未科技訂閱付款結果">
+  <section class="px-4 py-20">
+    <div class="mx-auto max-w-md text-center">
+      <div id="result-loading" class="text-text-muted">處理中…</div>
+
+      <div id="result-success" class="hidden">
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
+          <svg class="h-8 w-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 class="text-2xl font-black text-success">付款成功！</h1>
+        <p class="mt-3 text-text-muted">感謝您訂閱築未科技 AI 平台。我們會在一個工作天內開通您的帳號並發送確認 Email。</p>
+        <div id="result-plan" class="mt-4 rounded-xl border border-success/30 bg-success/5 p-4 text-sm text-success"></div>
+        <div class="mt-6 flex flex-col gap-3">
+          <a href="/dashboard" class="rounded-xl bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
+            前往儀表板
+          </a>
+          <a href="/" class="text-sm text-text-muted hover:text-text">回首頁</a>
+        </div>
+      </div>
+
+      <div id="result-fail" class="hidden">
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+          <svg class="h-8 w-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </div>
+        <h1 class="text-2xl font-black text-red-400">付款未完成</h1>
+        <p class="mt-3 text-text-muted">付款流程未完成或已取消。如有疑問請聯繫我們。</p>
+        <div class="mt-6 flex flex-col gap-3">
+          <a href="/pricing" class="rounded-xl bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
+            重新選擇方案
+          </a>
+          <a href="mailto:kai@zhe-wei.net" class="text-sm text-text-muted hover:text-text">聯絡客服</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+const params = new URLSearchParams(location.search);
+const status = params.get("Status") || params.get("status");
+const orderNo = params.get("MerchantOrderNo") || params.get("order");
+
+document.getElementById("result-loading")!.classList.add("hidden");
+
+if (status === "SUCCESS") {
+  document.getElementById("result-success")!.classList.remove("hidden");
+  if (orderNo) {
+    document.getElementById("result-plan")!.textContent = `訂單編號：${orderNo}`;
+  }
+} else {
+  document.getElementById("result-fail")!.classList.remove("hidden");
+}
+</script>

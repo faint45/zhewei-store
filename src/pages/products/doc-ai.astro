@@ -1,0 +1,52 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductDetail from "../../components/ProductDetail.astro";
+import DemoTerminal from "../../components/DemoTerminal.astro";
+import { products } from "../../content/products";
+
+const product = products.find((p) => p.id === "doc-ai")!;
+
+const requestBody = `{
+  "file_url": "https://example.com/structural_drawing.pdf",
+  "extract_mode": "full"
+}`;
+
+const responseJson = `{
+  "document_type": "structural_drawing",
+  "confidence": 0.94,
+  "pages": 48,
+  "extracted": {
+    "title": "B1~8F 結構平面圖",
+    "project": "中山區住宅新建工程",
+    "structural_system": "RC造",
+    "key_specs": [
+      { "item": "柱斷面", "value": "60x60 cm (B1~4F)" },
+      { "item": "樑深", "value": "75 cm" },
+      { "item": "版厚", "value": "15 cm" },
+      { "item": "混凝土強度", "value": "fc'=280 kgf/cm²" }
+    ],
+    "work_items": [
+      { "code": "03200", "desc": "鋼筋工程", "unit": "ton", "qty": 482 },
+      { "code": "03300", "desc": "混凝土工程", "unit": "m³", "qty": 2840 }
+    ]
+  },
+  "summary": "共48頁結構圖說，RC造8層樓，擷取到12項主要結構規格及2類主要工項數量。"
+}`;
+---
+
+<BaseLayout title={product.name} description={product.description}>
+  <ProductDetail product={product}>
+    <div slot="demo" class="mb-12">
+      <h2 class="mb-4 text-2xl font-bold">互動 Demo — PDF 解析</h2>
+      <p class="mb-5 text-sm text-text-muted">模擬解析一份結構設計圖 PDF，自動擷取規格、工項數量。</p>
+      <DemoTerminal
+        productId="doc-ai"
+        method="POST"
+        endpoint="/api/v1/doc/parse"
+        requestBody={requestBody}
+        responseJson={responseJson}
+        label="解析設計圖"
+      />
+    </div>
+  </ProductDetail>
+</BaseLayout>

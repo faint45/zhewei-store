@@ -1,0 +1,668 @@
+---
+// AI structural analysis visualization — point cloud → AI chat → multi-specialty analysis
+---
+
+<div class="sad-wrap" id="sadDemo">
+  <!-- Left: AI Chat panel -->
+  <div class="sad-chat">
+    <div class="sad-chat-header">
+      <div class="sad-chat-avatar">AI</div>
+      <div>
+        <div class="sad-chat-name">築未結構分析引擎</div>
+        <div class="sad-chat-status" id="sadStatus">● 就緒</div>
+      </div>
+    </div>
+    <div class="sad-chat-body" id="sadChatBody"></div>
+    <div class="sad-chat-input">
+      <span class="sad-input-text" id="sadInputText"></span>
+      <span class="sad-input-cursor">|</span>
+    </div>
+  </div>
+
+  <!-- Right: Analysis visualization -->
+  <div class="sad-viz">
+    <!-- Specialty tabs -->
+    <div class="sad-tabs" id="sadTabs">
+      <button class="sad-tab active" data-spec="0">擋土支撐</button>
+      <button class="sad-tab" data-spec="1">模板支撐</button>
+      <button class="sad-tab" data-spec="2">施工架</button>
+      <button class="sad-tab" data-spec="3">RC 結構</button>
+      <button class="sad-tab" data-spec="4">鋼構</button>
+    </div>
+
+    <!-- Analysis panels (one per specialty) -->
+    <div class="sad-panels" id="sadPanels">
+
+      <!-- 0: 擋土支撐 -->
+      <div class="sad-panel active" data-panel="0">
+        <div class="sad-panel-title">擋土支撐系統分析</div>
+        <div class="sad-panel-grid">
+          <div class="sad-diagram">
+            <svg viewBox="0 0 180 160" class="sad-svg">
+              <!-- Ground surface -->
+              <line x1="10" y1="30" x2="170" y2="30" stroke="#556" stroke-width="1"/>
+              <!-- Hatching for soil -->
+              <rect x="10" y="30" width="70" height="120" fill="#1a2030" opacity="0.6"/>
+              <!-- Retaining wall -->
+              <rect x="78" y="20" width="14" height="130" fill="#3b82f6" rx="2"/>
+              <!-- Struts -->
+              <line x1="92" y1="55" x2="170" y2="55" stroke="#f97316" stroke-width="2.5" stroke-dasharray="none"/>
+              <line x1="92" y1="95" x2="170" y2="95" stroke="#f97316" stroke-width="2.5"/>
+              <line x1="92" y1="130" x2="170" y2="130" stroke="#f97316" stroke-width="2.5"/>
+              <!-- Anchor labels -->
+              <circle cx="165" cy="55" r="4" fill="#f97316"/>
+              <circle cx="165" cy="95" r="4" fill="#f97316"/>
+              <circle cx="165" cy="130" r="4" fill="#f97316"/>
+              <!-- Excavation depth arrow -->
+              <line x1="60" y1="30" x2="60" y2="150" stroke="#ef4444" stroke-width="1" marker-end="url(#arr)"/>
+              <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ef4444"/></marker></defs>
+              <text x="33" y="100" fill="#ef4444" font-size="8">開挖深度</text>
+              <text x="33" y="110" fill="#ef4444" font-size="8">8.5m</text>
+              <!-- Water table -->
+              <line x1="10" y1="75" x2="78" y2="75" stroke="#60a5fa" stroke-width="1" stroke-dasharray="3,2"/>
+              <text x="12" y="72" fill="#60a5fa" font-size="7">地下水位</text>
+              <!-- Waling beam label -->
+              <text x="95" y="50" fill="#f97316" font-size="7">第一道</text>
+              <text x="95" y="90" fill="#f97316" font-size="7">第二道</text>
+              <text x="95" y="125" fill="#f97316" font-size="7">第三道</text>
+            </svg>
+          </div>
+          <div class="sad-metrics">
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">整體安全係數</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="82%"></div></div>
+              <span class="sad-metric-val ok">1.72 ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">踢腳穩定</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="76%"></div></div>
+              <span class="sad-metric-val ok">1.52 ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">支撐預力率</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-yellow" style="width:0%" data-w="62%"></div></div>
+              <span class="sad-metric-val warn">62% ▲</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">隆起安全係數</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="88%"></div></div>
+              <span class="sad-metric-val ok">1.96 ✓</span>
+            </div>
+            <div class="sad-checks">
+              <div class="sad-check ok">✓ §153 安全係數 ≥1.5</div>
+              <div class="sad-check ok">✓ CNS 14253 設計符合</div>
+              <div class="sad-check warn">▲ 支撐預力建議提高至 75%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1: 模板支撐 -->
+      <div class="sad-panel" data-panel="1">
+        <div class="sad-panel-title">模板支撐系統分析</div>
+        <div class="sad-panel-grid">
+          <div class="sad-diagram">
+            <svg viewBox="0 0 180 160" class="sad-svg">
+              <!-- Slab -->
+              <rect x="10" y="10" width="160" height="18" fill="#3b82f6" rx="2" opacity="0.8"/>
+              <text x="75" y="23" fill="#fff" font-size="8">樓板 25cm</text>
+              <!-- Posts grid -->
+              <line x1="35" y1="28" x2="35" y2="150" stroke="#94a3b8" stroke-width="2"/>
+              <line x1="80" y1="28" x2="80" y2="150" stroke="#94a3b8" stroke-width="2"/>
+              <line x1="125" y1="28" x2="125" y2="150" stroke="#94a3b8" stroke-width="2"/>
+              <line x1="155" y1="28" x2="155" y2="100" stroke="#ef4444" stroke-width="2"/>
+              <!-- Crossbrace -->
+              <line x1="35" y1="80" x2="80" y2="80" stroke="#f97316" stroke-width="1.5"/>
+              <line x1="80" y1="80" x2="125" y2="80" stroke="#f97316" stroke-width="1.5"/>
+              <!-- Diagonal brace -->
+              <line x1="35" y1="80" x2="80" y2="130" stroke="#f97316" stroke-width="1" opacity="0.6"/>
+              <line x1="80" y1="80" x2="125" y2="130" stroke="#f97316" stroke-width="1" opacity="0.6"/>
+              <!-- Base plates -->
+              <rect x="27" y="148" width="16" height="4" fill="#64748b" rx="1"/>
+              <rect x="72" y="148" width="16" height="4" fill="#64748b" rx="1"/>
+              <rect x="117" y="148" width="16" height="4" fill="#64748b" rx="1"/>
+              <!-- Spacing dimension -->
+              <line x1="35" y1="158" x2="80" y2="158" stroke="#556" stroke-width="1"/>
+              <text x="48" y="155" fill="#778" font-size="7">1.2m</text>
+              <!-- Warning on last post -->
+              <text x="148" y="90" fill="#ef4444" font-size="8">!</text>
+              <!-- Floor level -->
+              <line x1="10" y1="150" x2="170" y2="150" stroke="#334" stroke-width="1" stroke-dasharray="4,2"/>
+            </svg>
+          </div>
+          <div class="sad-metrics">
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">立柱軸壓比</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="68%"></div></div>
+              <span class="sad-metric-val ok">0.68 ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">橫撐間距</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="78%"></div></div>
+              <span class="sad-metric-val ok">1.5m ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">有效長度比</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-red" style="width:0%" data-w="92%"></div></div>
+              <span class="sad-metric-val err">58 ✗</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">底座承壓</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="55%"></div></div>
+              <span class="sad-metric-val ok">合格 ✓</span>
+            </div>
+            <div class="sad-checks">
+              <div class="sad-check ok">✓ §131 間距 ≤1.8m</div>
+              <div class="sad-check err">✗ 有效長度比超過 60 倍</div>
+              <div class="sad-check warn">▲ 建議增加斜撐或減小間距</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2: 施工架 -->
+      <div class="sad-panel" data-panel="2">
+        <div class="sad-panel-title">施工架系統分析</div>
+        <div class="sad-panel-grid">
+          <div class="sad-diagram">
+            <svg viewBox="0 0 180 160" class="sad-svg">
+              <!-- Building facade -->
+              <rect x="10" y="10" width="50" height="145" fill="#1a2030" rx="2" stroke="#334" stroke-width="1"/>
+              <!-- Windows -->
+              <rect x="18" y="20" width="16" height="12" fill="#243050" rx="1"/>
+              <rect x="38" y="20" width="16" height="12" fill="#243050" rx="1"/>
+              <rect x="18" y="45" width="16" height="12" fill="#243050" rx="1"/>
+              <rect x="38" y="45" width="16" height="12" fill="#243050" rx="1"/>
+              <rect x="18" y="70" width="16" height="12" fill="#243050" rx="1"/>
+              <rect x="38" y="70" width="16" height="12" fill="#243050" rx="1"/>
+              <!-- Scaffold standards (vertical) -->
+              <line x1="65" y1="10" x2="65" y2="155" stroke="#f97316" stroke-width="2"/>
+              <line x1="90" y1="10" x2="90" y2="155" stroke="#f97316" stroke-width="2"/>
+              <line x1="115" y1="10" x2="115" y2="155" stroke="#f97316" stroke-width="2"/>
+              <!-- Ledgers (horizontal) -->
+              <line x1="65" y1="40" x2="115" y2="40" stroke="#94a3b8" stroke-width="1.5"/>
+              <line x1="65" y1="70" x2="115" y2="70" stroke="#94a3b8" stroke-width="1.5"/>
+              <line x1="65" y1="100" x2="115" y2="100" stroke="#94a3b8" stroke-width="1.5"/>
+              <line x1="65" y1="130" x2="115" y2="130" stroke="#94a3b8" stroke-width="1.5"/>
+              <!-- Diagonals -->
+              <line x1="65" y1="40" x2="90" y2="70" stroke="#60a5fa" stroke-width="1" opacity="0.7"/>
+              <line x1="90" y1="40" x2="65" y2="70" stroke="#60a5fa" stroke-width="1" opacity="0.7"/>
+              <line x1="90" y1="70" x2="115" y2="100" stroke="#60a5fa" stroke-width="1" opacity="0.7"/>
+              <!-- Tie points -->
+              <circle cx="65" cy="40" r="3" fill="#22c55e"/>
+              <circle cx="65" cy="100" r="3" fill="#22c55e"/>
+              <!-- Working platform -->
+              <rect x="65" y="95" width="50" height="5" fill="#f97316" opacity="0.7" rx="1"/>
+              <!-- Worker -->
+              <circle cx="85" cy="87" r="4" fill="#fde68a"/>
+              <line x1="85" y1="91" x2="85" y2="100" stroke="#fde68a" stroke-width="1.5"/>
+              <!-- Base jack -->
+              <rect x="62" y="153" width="6" height="4" fill="#64748b" rx="1"/>
+              <rect x="87" y="153" width="6" height="4" fill="#64748b" rx="1"/>
+              <rect x="112" y="153" width="6" height="4" fill="#64748b" rx="1"/>
+            </svg>
+          </div>
+          <div class="sad-metrics">
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">架體穩定性</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="86%"></div></div>
+              <span class="sad-metric-val ok">合格 ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">連牆間距</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="70%"></div></div>
+              <span class="sad-metric-val ok">5.5m ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">施工載重</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-yellow" style="width:0%" data-w="66%"></div></div>
+              <span class="sad-metric-val warn">0.75t/m² ▲</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">扣件扭矩</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="73%"></div></div>
+              <span class="sad-metric-val ok">5.0 N·m ✓</span>
+            </div>
+            <div class="sad-checks">
+              <div class="sad-check ok">✓ §155 連牆件規定</div>
+              <div class="sad-check ok">✓ 安全網已設置</div>
+              <div class="sad-check warn">▲ 載重接近上限，注意管控</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3: RC 結構 -->
+      <div class="sad-panel" data-panel="3">
+        <div class="sad-panel-title">RC 結構斷面分析</div>
+        <div class="sad-panel-grid">
+          <div class="sad-diagram">
+            <svg viewBox="0 0 180 160" class="sad-svg">
+              <!-- Column cross section -->
+              <rect x="20" y="20" width="65" height="65" fill="#1e3050" stroke="#3b82f6" stroke-width="2" rx="2"/>
+              <text x="35" y="12" fill="#6b89b5" font-size="7">柱斷面 600×600</text>
+              <!-- Rebar dots in column -->
+              <circle cx="32" cy="32" r="4" fill="#ef4444"/>
+              <circle cx="52" cy="32" r="4" fill="#ef4444"/>
+              <circle cx="72" cy="32" r="4" fill="#ef4444"/>
+              <circle cx="32" cy="52" r="4" fill="#ef4444"/>
+              <circle cx="72" cy="52" r="4" fill="#ef4444"/>
+              <circle cx="32" cy="72" r="4" fill="#ef4444"/>
+              <circle cx="52" cy="72" r="4" fill="#ef4444"/>
+              <circle cx="72" cy="72" r="4" fill="#ef4444"/>
+              <!-- Stirrup -->
+              <rect x="26" y="26" width="53" height="53" fill="none" stroke="#f97316" stroke-width="1.5" rx="1"/>
+              <!-- Cover dimension -->
+              <line x1="20" y1="90" x2="26" y2="90" stroke="#778" stroke-width="1"/>
+              <text x="22" y="100" fill="#778" font-size="6">5cm</text>
+              <!-- Beam cross section -->
+              <rect x="110" y="20" width="55" height="35" fill="#1e3050" stroke="#22c55e" stroke-width="2" rx="2"/>
+              <text x="113" y="12" fill="#4ade80" font-size="7">梁斷面 300×600</text>
+              <!-- Beam rebar -->
+              <circle cx="120" cy="30" r="3" fill="#ef4444"/>
+              <circle cx="132" cy="30" r="3" fill="#ef4444"/>
+              <circle cx="144" cy="30" r="3" fill="#ef4444"/>
+              <circle cx="120" cy="48" r="3" fill="#60a5fa"/>
+              <circle cx="132" cy="48" r="3" fill="#60a5fb"/>
+              <!-- Stirrup beam -->
+              <rect x="115" y="24" width="45" height="27" fill="none" stroke="#f97316" stroke-width="1" rx="1"/>
+              <!-- Legend -->
+              <circle cx="20" cy="115" r="3" fill="#ef4444"/>
+              <text x="27" y="118" fill="#778" font-size="7">主筋 D25</text>
+              <circle cx="20" cy="128" r="3" fill="#f97316"/>
+              <text x="27" y="131" fill="#778" font-size="7">箍筋 D10@150</text>
+              <circle cx="90" cy="115" r="3" fill="#60a5fa"/>
+              <text x="97" y="118" fill="#778" font-size="7">受拉筋</text>
+            </svg>
+          </div>
+          <div class="sad-metrics">
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">柱鋼筋比</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="72%"></div></div>
+              <span class="sad-metric-val ok">2.8% ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">梁撓曲強度</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="79%"></div></div>
+              <span class="sad-metric-val ok">Φ·Mn ≥ Mu ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">剪力強度</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-yellow" style="width:0%" data-w="65%"></div></div>
+              <span class="sad-metric-val warn">1.15 ▲</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">保護層厚度</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="83%"></div></div>
+              <span class="sad-metric-val ok">5cm ✓</span>
+            </div>
+            <div class="sad-checks">
+              <div class="sad-check ok">✓ ACI 318 撓曲設計</div>
+              <div class="sad-check ok">✓ CNS 560 主筋間距</div>
+              <div class="sad-check warn">▲ 梁端剪力建議加密箍筋</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4: 鋼構 -->
+      <div class="sad-panel" data-panel="4">
+        <div class="sad-panel-title">鋼構接合分析</div>
+        <div class="sad-panel-grid">
+          <div class="sad-diagram">
+            <svg viewBox="0 0 180 160" class="sad-svg">
+              <!-- Column (I-section) -->
+              <rect x="40" y="10" width="20" height="145" fill="#1e3050" stroke="#3b82f6" stroke-width="1.5"/>
+              <rect x="30" y="10" width="40" height="6" fill="#3b82f6" rx="1"/>
+              <rect x="30" y="149" width="40" height="6" fill="#3b82f6" rx="1"/>
+              <!-- Beam (I-section) horizontal -->
+              <rect x="60" y="62" width="100" height="16" fill="#1e3050" stroke="#22c55e" stroke-width="1.5"/>
+              <rect x="60" y="58" width="100" height="6" fill="#22c55e" rx="1"/>
+              <rect x="60" y="76" width="100" height="6" fill="#22c55e" rx="1"/>
+              <!-- Connection plate -->
+              <rect x="58" y="55" width="8" height="32" fill="#f97316" rx="1"/>
+              <!-- Bolts at connection -->
+              <circle cx="62" cy="64" r="2.5" fill="#fbbf24" stroke="#92400e" stroke-width="0.5"/>
+              <circle cx="62" cy="72" r="2.5" fill="#fbbf24" stroke="#92400e" stroke-width="0.5"/>
+              <circle cx="62" cy="80" r="2.5" fill="#fbbf24" stroke="#92400e" stroke-width="0.5"/>
+              <!-- Weld symbol area -->
+              <line x1="58" y1="58" x2="50" y2="50" stroke="#ef4444" stroke-width="1"/>
+              <text x="26" y="48" fill="#ef4444" font-size="7">完全熔透</text>
+              <text x="26" y="57" fill="#ef4444" font-size="7">銲道 UT ✓</text>
+              <!-- Stiffener -->
+              <rect x="53" y="64" width="5" height="12" fill="#60a5fa" rx="0.5" opacity="0.8"/>
+              <!-- Load arrow -->
+              <line x1="150" y1="45" x2="150" y2="60" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arr2)"/>
+              <defs><marker id="arr2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#ef4444"/></marker></defs>
+              <text x="130" y="42" fill="#ef4444" font-size="7">載重 V</text>
+              <!-- Base plate -->
+              <rect x="22" y="155" width="56" height="5" fill="#94a3b8" rx="1"/>
+            </svg>
+          </div>
+          <div class="sad-metrics">
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">銲道強度</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="88%"></div></div>
+              <span class="sad-metric-val ok">合格 ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">螺栓剪力</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="74%"></div></div>
+              <span class="sad-metric-val ok">0.74 ✓</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">接合板承壓</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-yellow" style="width:0%" data-w="69%"></div></div>
+              <span class="sad-metric-val warn">0.87 ▲</span>
+            </div>
+            <div class="sad-metric-row">
+              <span class="sad-metric-label">柱局部挫屈</span>
+              <div class="sad-bar-wrap"><div class="sad-bar sad-bar-green" style="width:0%" data-w="91%"></div></div>
+              <span class="sad-metric-val ok">OK ✓</span>
+            </div>
+            <div class="sad-checks">
+              <div class="sad-check ok">✓ AWS D1.1 銲接規範</div>
+              <div class="sad-check ok">✓ AISC 360 螺栓設計</div>
+              <div class="sad-check warn">▲ 加勁板建議厚度改 16mm</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /sad-panels -->
+  </div>
+</div>
+
+<style>
+  .sad-wrap {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 16px;
+    max-width: 820px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+
+  /* Chat panel */
+  .sad-chat {
+    background: #0d1117;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .sad-chat-header {
+    background: #161b22;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #30363d;
+  }
+  .sad-chat-avatar {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+  }
+  .sad-chat-name { font-size: 11px; font-weight: 700; color: #e6edf3; }
+  .sad-chat-status { font-size: 9px; color: #3fb950; margin-top: 1px; }
+  .sad-chat-body {
+    flex: 1; padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+    min-height: 240px; overflow: hidden;
+  }
+  .sad-chat-input {
+    padding: 8px 12px;
+    border-top: 1px solid #21262d;
+    font-size: 10px; font-family: monospace; color: #8b949e;
+    display: flex; align-items: center; gap: 2px;
+  }
+  .sad-input-cursor { color: #f97316; animation: sadBlink 1s infinite; }
+  @keyframes sadBlink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+  .sad-msg {
+    font-size: 10px; line-height: 1.6;
+    padding: 6px 9px; border-radius: 8px;
+    opacity: 0; transform: translateY(4px);
+    transition: opacity .25s, transform .25s;
+  }
+  .sad-msg.show { opacity: 1; transform: translateY(0); }
+  .sad-msg.user {
+    background: #1f2d3d; color: #7cb9f4; border: 1px solid #1d4a7a;
+    align-self: flex-end; text-align: right;
+  }
+  .sad-msg.ai {
+    background: #1a1f2a; color: #c9d1d9; border: 1px solid #30363d;
+    align-self: flex-start;
+  }
+  .sad-msg.ai.result {
+    background: #1a2d1a; color: #7ee787; border-color: #2ea043;
+    font-family: monospace;
+  }
+  .sad-msg.ai.warn {
+    background: #2d1a0a; color: #ffb347; border-color: #9a4500;
+  }
+
+  /* Viz panel */
+  .sad-viz {
+    background: #0d1117;
+    border-radius: 10px;
+    border: 1px solid #30363d;
+    overflow: hidden;
+  }
+  .sad-tabs {
+    display: flex;
+    border-bottom: 1px solid #21262d;
+    background: #161b22;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sad-tabs::-webkit-scrollbar { display: none; }
+  .sad-tab {
+    padding: 8px 12px;
+    font-size: 10px; color: #8b949e;
+    background: transparent; border: none; cursor: pointer;
+    white-space: nowrap; border-bottom: 2px solid transparent;
+    transition: all .2s;
+  }
+  .sad-tab:hover { color: #e6edf3; }
+  .sad-tab.active { color: #f97316; border-bottom-color: #f97316; }
+
+  .sad-panels { position: relative; }
+  .sad-panel { display: none; padding: 14px; }
+  .sad-panel.active { display: block; }
+  .sad-panel-title { font-size: 11px; font-weight: 700; color: #c9d1d9; margin-bottom: 12px; }
+
+  .sad-panel-grid {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .sad-diagram { flex-shrink: 0; }
+  .sad-svg { width: 100%; height: auto; background: #0a0f1a; border-radius: 6px; border: 1px solid #21262d; }
+
+  .sad-metrics { display: flex; flex-direction: column; gap: 7px; }
+  .sad-metric-row { display: grid; grid-template-columns: 72px 1fr 60px; align-items: center; gap: 6px; }
+  .sad-metric-label { font-size: 9px; color: #6e7681; }
+  .sad-bar-wrap { height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; }
+  .sad-bar {
+    height: 100%; border-radius: 3px;
+    transition: width .8s cubic-bezier(.4,0,.2,1);
+  }
+  .sad-bar-green { background: linear-gradient(90deg, #22c55e, #4ade80); }
+  .sad-bar-yellow { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .sad-bar-red { background: linear-gradient(90deg, #ef4444, #f87171); }
+  .sad-metric-val { font-size: 9px; font-weight: 700; font-family: monospace; text-align: right; }
+  .sad-metric-val.ok { color: #3fb950; }
+  .sad-metric-val.warn { color: #f0883e; }
+  .sad-metric-val.err { color: #ef4444; }
+
+  .sad-checks { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .sad-check { font-size: 9px; padding: 3px 6px; border-radius: 4px; }
+  .sad-check.ok { background: #0d2010; color: #3fb950; border-left: 2px solid #2ea043; }
+  .sad-check.warn { background: #2d1a08; color: #f0883e; border-left: 2px solid #9a4500; }
+  .sad-check.err { background: #2d0a0a; color: #f87171; border-left: 2px solid #c0392b; }
+
+  @media (max-width: 680px) {
+    .sad-wrap { grid-template-columns: 1fr; }
+    .sad-chat { display: none; }
+    .sad-panel-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+(function() {
+  const SEQUENCES = [
+    {
+      spec: 0,
+      msgs: [
+        { role: 'user', text: '📎 點雲已上傳：基坑現場掃描.las', delay: 0 },
+        { role: 'ai', text: 'AI 解析中… 偵測到開挖深度 8.5m，三道支撐系統', delay: 1200, cls: '' },
+        { role: 'user', text: '分析擋土支撐安全性', delay: 2800 },
+        { role: 'ai', text: '計算土壓力 + 水壓力\nRankine 主動土壓理論…', delay: 3600, cls: '' },
+        { role: 'ai', text: '安全係數 1.72 ✓\n支撐預力率 62% 需調整', delay: 5000, cls: 'result' },
+      ]
+    },
+    {
+      spec: 1,
+      msgs: [
+        { role: 'user', text: '檢查 3F 模板支撐計算書', delay: 0 },
+        { role: 'ai', text: '讀取 CAD 配置圖\n立柱間距 1.2m × 1.2m…', delay: 1000, cls: '' },
+        { role: 'ai', text: '⚠️ 有效長度比 = 58\n超過法規 60 倍限制', delay: 2400, cls: 'warn' },
+        { role: 'user', text: '如何改善？', delay: 3800 },
+        { role: 'ai', text: '建議：增設水平斜撐\n縮小間距至 0.9m 可降至 43 倍', delay: 4600, cls: 'result' },
+      ]
+    },
+    {
+      spec: 2,
+      msgs: [
+        { role: 'user', text: '施工架高度 24m，請驗算', delay: 0 },
+        { role: 'ai', text: 'H=24m 落在高架體定義\n套用 §155 規定…', delay: 1100, cls: '' },
+        { role: 'ai', text: '連牆件間距 5.5m × 4m ✓\n施工載重 0.75t/m² 接近上限', delay: 2500, cls: '' },
+        { role: 'ai', text: '整體穩定 ✓\n建議管控現場載重不超限', delay: 4000, cls: 'result' },
+      ]
+    },
+    {
+      spec: 3,
+      msgs: [
+        { role: 'user', text: '梁 B1 端部剪力設計', delay: 0 },
+        { role: 'ai', text: 'Vu = 285 kN\nφVn = 327 kN ✓', delay: 1200, cls: '' },
+        { role: 'ai', text: '剪力比 = 0.87\n建議加密箍筋區 2d = 1.1m', delay: 2600, cls: 'warn' },
+        { role: 'user', text: '自動生成配筋圖', delay: 4000 },
+        { role: 'ai', text: '📐 配筋圖已生成\n箍筋 D10@100 (加密) / @200', delay: 4900, cls: 'result' },
+      ]
+    },
+    {
+      spec: 4,
+      msgs: [
+        { role: 'user', text: '鋼構梁柱接合 J-1 驗算', delay: 0 },
+        { role: 'ai', text: '完全熔透銲道 UT 檢驗 ✓\nAWS D1.1 符合', delay: 1100, cls: '' },
+        { role: 'ai', text: '高強度螺栓剪力比 0.74 ✓\n接合板承壓比 0.87 ▲', delay: 2500, cls: '' },
+        { role: 'ai', text: '建議加勁板改 t=16mm\n接合效率提升至 0.92', delay: 4000, cls: 'result' },
+      ]
+    },
+  ];
+
+  let seqIdx = 0;
+  let running = false;
+  let timeouts: number[] = [];
+
+  function clearAllTimeouts() {
+    timeouts.forEach(clearTimeout);
+    timeouts = [];
+  }
+
+  function sleep(ms: number) { return new Promise(r => timeouts.push(setTimeout(r, ms) as unknown as number)); }
+
+  function setTab(specIdx: number) {
+    document.querySelectorAll('.sad-tab').forEach((t, i) => t.classList.toggle('active', i === specIdx));
+    document.querySelectorAll('.sad-panel').forEach((p, i) => p.classList.toggle('active', i === specIdx));
+    // Animate bars in active panel
+    const panel = document.querySelector(`.sad-panel[data-panel="${specIdx}"]`) as HTMLElement;
+    if (panel) {
+      panel.querySelectorAll('.sad-bar').forEach(b => {
+        const bar = b as HTMLElement;
+        bar.style.width = '0%';
+        setTimeout(() => { bar.style.width = bar.dataset.w || '0%'; }, 50);
+      });
+    }
+  }
+
+  async function runSequence() {
+    if (!running) return;
+    const seq = SEQUENCES[seqIdx % SEQUENCES.length];
+    seqIdx++;
+
+    setTab(seq.spec);
+
+    const chatBody = document.getElementById('sadChatBody') as HTMLElement;
+    const inputEl = document.getElementById('sadInputText') as HTMLElement;
+    const statusEl = document.getElementById('sadStatus') as HTMLElement;
+    if (!chatBody) return;
+
+    chatBody.innerHTML = '';
+    inputEl.textContent = '';
+
+    for (const msg of seq.msgs) {
+      await sleep(msg.delay - (seq.msgs[seq.msgs.indexOf(msg) > 0 ? seq.msgs.indexOf(msg)-1 : 0]?.delay || 0));
+      if (!running) return;
+
+      if (msg.role === 'user') {
+        // Typewriter for user input
+        inputEl.textContent = '';
+        for (const ch of msg.text) {
+          if (!running) return;
+          inputEl.textContent += ch;
+          await sleep(35);
+        }
+        await sleep(120);
+        const div = document.createElement('div');
+        div.className = 'sad-msg user';
+        div.textContent = msg.text;
+        chatBody.appendChild(div);
+        inputEl.textContent = '';
+        setTimeout(() => div.classList.add('show'), 10);
+      } else {
+        if (statusEl) statusEl.textContent = '● 分析中…';
+        await sleep(400);
+        const div = document.createElement('div');
+        div.className = `sad-msg ai ${msg.cls || ''}`;
+        div.style.whiteSpace = 'pre-line';
+        div.textContent = msg.text;
+        chatBody.appendChild(div);
+        setTimeout(() => div.classList.add('show'), 10);
+        if (statusEl) statusEl.textContent = '● 就緒';
+        chatBody.scrollTop = chatBody.scrollHeight;
+      }
+    }
+
+    await sleep(3800);
+    if (running) runSequence();
+  }
+
+  // Manual tab click
+  document.querySelectorAll('.sad-tab').forEach((tab, i) => {
+    tab.addEventListener('click', () => setTab(i));
+  });
+
+  // Start on visible
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !running) {
+        running = true;
+        observer.disconnect();
+        // init bars for first panel
+        setTab(0);
+        runSequence();
+      }
+    });
+  }, { threshold: 0.3 });
+  const el = document.getElementById('sadDemo');
+  if (el) observer.observe(el);
+})();
+</script>

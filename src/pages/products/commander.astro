@@ -1,0 +1,51 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductDetail from "../../components/ProductDetail.astro";
+import DemoTerminal from "../../components/DemoTerminal.astro";
+import { products } from "../../content/products";
+
+const product = products.find((p) => p.id === "commander")!;
+
+const requestBody = `{
+  "project_context": "台北市信義區 RC 住宅新建工程，地上12層地下2層",
+  "weather": { "rain_probability": 70, "wind_speed_ms": 12, "temperature": 28 },
+  "deviation_cm": 4.5,
+  "structural_elements": [
+    { "type": "柱", "deviation_cm": 3.2, "safety_factor": 1.6 },
+    { "type": "梁", "deviation_cm": 4.5, "safety_factor": 1.3 }
+  ],
+  "load_ratio": 0.72
+}`;
+
+const responseJson = `{
+  "final_score": 0.485,
+  "final_action": "加強梁端監測，暫停吊裝作業直到風速降至10m/s以下",
+  "priority": "high",
+  "agent_results": [
+    { "agent": "VisionAgent", "score": 0.12, "action": "monitor" },
+    { "agent": "WeatherAgent", "score": 0.62, "action": "停止吊裝作業" },
+    { "agent": "StructuralAgent", "score": 0.48, "action": "加強監測" },
+    { "agent": "ActionAgent", "score": 0.35, "action": "已派工 3/4 項" }
+  ],
+  "reasoning": "風速12m/s接近停工標準，梁安全係數1.3偏低需加強監測。建議暫停高空作業。"
+}`;
+---
+
+<BaseLayout title={product.name} description={product.description}>
+  <ProductDetail product={product}>
+    <div slot="demo" class="mb-12">
+      <h2 class="mb-2 text-2xl font-bold">互動 Demo — 5-Agent 全局決策</h2>
+      <p class="mb-5 text-sm text-text-muted">
+        輸入工地狀態（天氣、結構偏差、載重比），5 個 AI Agent 並行分析，Supervisor 做出最終施工決策。
+      </p>
+      <DemoTerminal
+        productId="commander"
+        method="POST"
+        endpoint="/api/v1/commander/decide"
+        requestBody={requestBody}
+        responseJson={responseJson}
+        label="執行 AI 決策"
+      />
+    </div>
+  </ProductDetail>
+</BaseLayout>

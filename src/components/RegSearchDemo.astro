@@ -1,0 +1,193 @@
+---
+// AI regulation search demo — typewriter search + highlighted results
+---
+
+<div class="rsd-wrap" id="regSearchDemo">
+  <div class="rsd-terminal">
+    <div class="rsd-bar">
+      <span class="rsd-dot" style="background:#ff5f57"></span>
+      <span class="rsd-dot" style="background:#febc2e"></span>
+      <span class="rsd-dot" style="background:#28c840"></span>
+      <span class="rsd-title">築未 AI 法規顧問</span>
+    </div>
+    <div class="rsd-body">
+      <div class="rsd-search-row">
+        <span class="rsd-prompt">❯</span>
+        <span class="rsd-query" id="rsdQuery"></span>
+        <span class="rsd-cursor" id="rsdCursor">|</span>
+      </div>
+      <div id="rsdResults" class="rsd-results"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .rsd-wrap { max-width: 680px; margin: 0 auto; }
+  .rsd-terminal {
+    background: #0d1117;
+    border-radius: 12px;
+    border: 1px solid #30363d;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .rsd-bar {
+    background: #161b22;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid #30363d;
+  }
+  .rsd-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .rsd-title { margin-left: 8px; font-size: 12px; color: #8b949e; }
+  .rsd-body { padding: 16px; min-height: 280px; }
+  .rsd-search-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+  .rsd-prompt { color: #f97316; font-size: 14px; }
+  .rsd-query { color: #e6edf3; font-size: 13px; font-family: monospace; }
+  .rsd-cursor { color: #f97316; animation: blink 1s infinite; font-size: 14px; }
+  @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+  .rsd-results { display: flex; flex-direction: column; gap: 10px; }
+  .rsd-result {
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 12px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .3s, transform .3s;
+  }
+  .rsd-result.show { opacity: 1; transform: translateY(0); }
+  .rsd-result-source { font-size: 10px; color: #8b949e; margin-bottom: 4px; }
+  .rsd-result-title { font-size: 12px; font-weight: 700; color: #58a6ff; margin-bottom: 6px; }
+  .rsd-result-body { font-size: 11px; line-height: 1.7; color: #c9d1d9; }
+  .rsd-hl { color: #f97316; font-weight: 600; background: rgba(249,115,22,0.12); border-radius: 3px; padding: 0 2px; }
+  .rsd-tag {
+    display: inline-block;
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-top: 6px;
+    margin-right: 4px;
+  }
+  .rsd-tag.law { background: #0d2342; color: #58a6ff; border: 1px solid #1f6feb; }
+  .rsd-tag.cns { background: #1a2d1a; color: #3fb950; border: 1px solid #2ea043; }
+  .rsd-tag.calc { background: #2d1a0d; color: #f0883e; border: 1px solid #9e6a03; }
+  .rsd-spinner { color: #f97316; font-size: 12px; margin-top: 8px; }
+</style>
+
+<script>
+(function() {
+  const QUERIES = [
+    {
+      q: '擋土支撐安全係數規定',
+      results: [
+        {
+          source: '職業安全衛生設施規則 §153',
+          title: '擋土支撐安全係數',
+          body: '開挖深度超過 <span class="rsd-hl">1.5 公尺</span>時，擋土支撐安全係數不得低於 <span class="rsd-hl">1.5</span>，並應由技師簽證。',
+          tags: ['law','calc'],
+        },
+        {
+          source: 'CNS 14253 建築基礎工程施工規範',
+          title: '擋土壁設計要求',
+          body: '支撐預力應達設計荷重之 <span class="rsd-hl">75%</span>，腰梁接頭強度不得低於設計強度之 <span class="rsd-hl">100%</span>。',
+          tags: ['cns','calc'],
+        },
+      ],
+    },
+    {
+      q: '模板支撐間距計算',
+      results: [
+        {
+          source: '勞工安全衛生設施規則 §131',
+          title: '模板支撐立柱間距規定',
+          body: '立柱間距不得超過 <span class="rsd-hl">1.8 公尺</span>，受壓構材有效長度不得超過最小斷面迴轉半徑之 <span class="rsd-hl">60 倍</span>。',
+          tags: ['law'],
+        },
+        {
+          source: 'AI 計算建議',
+          title: '依您的樓板厚度 25cm 建議',
+          body: 'W型支撐配置：立柱間距 <span class="rsd-hl">1.2m × 1.2m</span>，大樑下需加密至 <span class="rsd-hl">0.6m</span>。計算書可自動生成。',
+          tags: ['calc'],
+        },
+      ],
+    },
+    {
+      q: '鋼構工程銲接檢驗頻率',
+      results: [
+        {
+          source: 'AWS D1.1 鋼結構銲接規範',
+          title: '非破壞性檢測要求',
+          body: '主結構完全熔透銲道需 <span class="rsd-hl">100%</span> UT 檢驗；填角銲道依工程規模抽樣 <span class="rsd-hl">10～25%</span>。',
+          tags: ['cns'],
+        },
+        {
+          source: '建築技術規則構造編 §441',
+          title: '高強度螺栓接合',
+          body: '摩擦型高強度螺栓預拉力應達標稱強度之 <span class="rsd-hl">70%</span>，扭矩扳手校正週期不超過 <span class="rsd-hl">90 天</span>。',
+          tags: ['law','calc'],
+        },
+      ],
+    },
+  ];
+
+  let queryIdx = 0;
+
+  async function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function runCycle() {
+    const item = QUERIES[queryIdx % QUERIES.length];
+    queryIdx++;
+
+    const queryEl = document.getElementById('rsdQuery') as HTMLElement;
+    const cursor = document.getElementById('rsdCursor') as HTMLElement;
+    const results = document.getElementById('rsdResults') as HTMLElement;
+    if (!queryEl || !results) return;
+
+    // Clear
+    results.innerHTML = '';
+    queryEl.textContent = '';
+
+    // Type query
+    for (const ch of item.q) {
+      queryEl.textContent += ch;
+      await sleep(60 + Math.random() * 40);
+    }
+
+    await sleep(400);
+
+    // Show spinner
+    const spinner = document.createElement('div');
+    spinner.className = 'rsd-spinner'; spinner.textContent = '⟳ 搜尋法規資料庫…';
+    results.appendChild(spinner);
+    await sleep(900);
+    spinner.remove();
+
+    // Show results
+    for (const r of item.results) {
+      const div = document.createElement('div');
+      div.className = 'rsd-result';
+      div.innerHTML = `
+        <div class="rsd-result-source">${r.source}</div>
+        <div class="rsd-result-title">${r.title}</div>
+        <div class="rsd-result-body">${r.body}</div>
+        <div>${r.tags.map((t: string) => `<span class="rsd-tag ${t}">${t === 'law' ? '法規' : t === 'cns' ? 'CNS 標準' : 'AI 計算'}</span>`).join('')}</div>`;
+      results.appendChild(div);
+      await sleep(50);
+      div.classList.add('show');
+      await sleep(700);
+    }
+
+    await sleep(3500);
+
+    // Clear and loop
+    await runCycle();
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { observer.disconnect(); runCycle(); } });
+  }, { threshold: 0.3 });
+  const el = document.getElementById('regSearchDemo');
+  if (el) observer.observe(el);
+})();
+</script>

@@ -1,0 +1,104 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { products } from "../content/products";
+---
+
+<BaseLayout title="API 文件" description="築未科技 AI 引擎 API 文件 — 快速整合指南與端點參考。">
+  <section class="px-4 py-16">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-12">
+        <h1 class="text-4xl font-black md:text-5xl">API 文件</h1>
+        <p class="mt-4 text-lg text-text-muted">快速整合指南，讓你的系統在幾小時內對接築未 AI 引擎。</p>
+      </div>
+
+      <!-- Base URL -->
+      <div class="mb-10 rounded-xl border border-border bg-bg-card p-5">
+        <div class="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">Base URL</div>
+        <code class="text-sm text-accent">https://api.zhe-wei.net/api/v1</code>
+        <p class="mt-2 text-sm text-text-muted">所有請求需帶 <code class="rounded bg-bg px-1 py-0.5 text-xs text-accent">Authorization: Bearer &lt;your_api_key&gt;</code> header。</p>
+      </div>
+
+      <!-- Quick start -->
+      <div class="mb-12">
+        <h2 class="mb-4 text-2xl font-bold">快速開始</h2>
+        <div class="rounded-xl border border-border bg-[#0d1117] p-5 font-mono text-sm">
+          <div class="mb-1 text-[#8b949e]"># 安裝（Python）</div>
+          <div class="text-[#79c0ff]">pip install <span class="text-[#a5d6ff]">requests</span></div>
+          <div class="mt-3 text-[#8b949e]"># 呼叫 API</div>
+          <div class="text-[#e6edf3]">import requests</div>
+          <div class="text-[#e6edf3] mt-1">resp = requests.post(</div>
+          <div class="text-[#e6edf3] ml-4"><span class="text-[#a5d6ff]">"https://api.zhe-wei.net/api/v1/schedule/generate"</span>,</div>
+          <div class="text-[#e6edf3] ml-4">headers=&#123;<span class="text-[#a5d6ff]">"Authorization"</span>: <span class="text-[#a5d6ff]">f"Bearer &#123;API_KEY&#125;"</span>&#125;,</div>
+          <div class="text-[#e6edf3] ml-4">json=&#123;<span class="text-[#a5d6ff]">"project_desc"</span>: <span class="text-[#a5d6ff]">"8 層 RC 住宅，1200 坪"</span>&#125;</div>
+          <div class="text-[#e6edf3]">)</div>
+          <div class="text-[#e6edf3] mt-1">print(resp.json())</div>
+        </div>
+      </div>
+
+      <!-- Endpoints by product -->
+      <h2 class="mb-6 text-2xl font-bold">端點總覽</h2>
+      <div class="space-y-8">
+        {products.map((p) => (
+          <div class="rounded-xl border border-border bg-bg-card overflow-hidden">
+            <div class={`flex items-center gap-3 px-5 py-4 bg-gradient-to-r ${p.color} bg-opacity-10`}>
+              <div class={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${p.color}`}>
+                <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={p.icon} />
+                </svg>
+              </div>
+              <div>
+                <span class="font-bold text-text-heading">{p.name}</span>
+                <span class="ml-2 text-sm text-text-muted">{p.tagline}</span>
+              </div>
+            </div>
+            <div class="divide-y divide-border">
+              {p.apis?.map((ep: any) => (
+                <div class="flex items-start gap-4 px-5 py-3">
+                  <span class={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase
+                    ${ep.method === 'POST' ? 'bg-green-500/15 text-green-400' :
+                      ep.method === 'GET' ? 'bg-blue-500/15 text-blue-400' :
+                      'bg-orange-500/15 text-orange-400'}`}>
+                    {ep.method}
+                  </span>
+                  <div class="min-w-0">
+                    <code class="text-sm text-accent">{ep.path}</code>
+                    <p class="mt-0.5 text-xs text-text-muted">{ep.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <!-- Auth section -->
+      <div class="mt-12 rounded-xl border border-accent/20 bg-accent/5 p-6">
+        <h3 class="font-bold text-text-heading">取得 API Key</h3>
+        <p class="mt-2 text-sm text-text-muted">
+          目前 API Key 需透過試用申請取得。申請通過後，我們會透過 Email 傳送您的 API Key 及沙箱環境連結。
+        </p>
+        <a
+          href="/demo"
+          class="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
+        >
+          申請試用取得 API Key →
+        </a>
+      </div>
+
+      <!-- Rate limits -->
+      <div class="mt-8 grid gap-4 sm:grid-cols-3">
+        {[
+          { label: "試用方案", limit: "100 次 / 天", note: "沙箱環境，資料不保存" },
+          { label: "基本方案", limit: "1,000 次 / 天", note: "生產環境，資料加密保存" },
+          { label: "企業方案", limit: "無限制", note: "專屬伺服器，SLA 99.9%" },
+        ].map(item => (
+          <div class="rounded-lg border border-border bg-bg-card p-4">
+            <div class="text-xs font-semibold uppercase tracking-wider text-text-muted">{item.label}</div>
+            <div class="mt-1 text-xl font-black text-text-heading">{item.limit}</div>
+            <div class="mt-1 text-xs text-text-muted">{item.note}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>

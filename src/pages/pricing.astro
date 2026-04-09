@@ -1,0 +1,239 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { products } from "../content/products";
+---
+
+<BaseLayout title="定價" description="築未科技 AI 工具定價方案 — 依需求選擇套件，彈性訂閱。">
+  <section class="px-4 py-16">
+    <div class="mx-auto max-w-5xl">
+      <div class="mb-12 text-center">
+        <h1 class="text-4xl font-black md:text-5xl">透明定價，按需選購</h1>
+        <p class="mt-4 text-lg text-text-muted">每個引擎獨立計費，不綁約、不綁套。先試用，滿意再訂閱。</p>
+      </div>
+
+      <!-- Pricing Cards -->
+      <div class="grid gap-6 md:grid-cols-2">
+        {products.map((p) => (
+          <div class="rounded-2xl border border-border bg-bg-card p-6">
+            <div class="flex items-center gap-3">
+              <div class={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${p.color}`}>
+                <svg class="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={p.icon} />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-text-heading">{p.name}</h3>
+                <p class="text-xs text-text-muted">{p.tagline}</p>
+              </div>
+            </div>
+            <div class="mt-4">
+              <span class="text-2xl font-black text-accent">{p.comingSoonPrice}</span>
+            </div>
+            <ul class="mt-4 space-y-2">
+              {p.features.slice(0, 3).map((f) => (
+                <li class="flex items-start gap-2 text-sm text-text-muted">
+                  <svg class="mt-0.5 h-4 w-4 shrink-0 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div class="mt-5 flex gap-2">
+              <a href="/demo" class="flex-1 rounded-xl border border-accent bg-accent/5 py-2.5 text-center text-sm font-semibold text-accent transition-colors hover:bg-accent hover:text-white">
+                免費試用
+              </a>
+              <button
+                class="subscribe-btn flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
+                data-plan={p.id}
+                data-price={p.comingSoonPrice}
+              >
+                立即訂閱
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <!-- Full Bundle -->
+      <div class="mt-8 rounded-2xl border-2 border-accent bg-gradient-to-br from-accent/10 to-amber-500/10 p-8 text-center">
+        <div class="mb-2 inline-flex rounded-full bg-accent px-3 py-1 text-xs font-bold text-white">最受歡迎</div>
+        <h3 class="text-2xl font-black">全套方案</h3>
+        <p class="mt-2 text-text-muted">四大引擎全部解鎖，資料互通、效益最大化</p>
+        <div class="mt-4">
+          <span class="text-3xl font-black text-accent">NT$ 15,000/月起</span>
+          <span class="ml-2 text-sm text-text-muted line-through">NT$ 18,000</span>
+        </div>
+        <div class="mt-5 flex flex-wrap justify-center gap-3">
+          <a href="/demo" class="rounded-xl border border-accent px-8 py-3 font-semibold text-accent hover:bg-accent hover:text-white">
+            申請試用
+          </a>
+          <button
+            class="subscribe-btn rounded-xl bg-accent px-8 py-3 font-semibold text-white hover:bg-accent-hover"
+            data-plan="enterprise"
+            data-price="NT$ 50,000/月"
+          >
+            立即訂閱全套
+          </button>
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <div class="mt-16">
+        <h2 class="mb-8 text-center text-2xl font-bold">常見問題</h2>
+        <div class="space-y-4">
+          {[
+            { q: "試用期多長？", a: "每個套件提供 14 天免費試用，試用期間功能完全不受限。" },
+            { q: "需要簽約嗎？", a: "不需要。月訂閱制，隨時可取消，無最低使用期限。" },
+            { q: "可以只買一個套件嗎？", a: "當然可以。每個引擎獨立運作，依你的需求選購即可。" },
+            { q: "如何整合到現有系統？", a: "透過 RESTful API 串接，支援 LINE 機器人、n8n 自動化工作流、或直接 HTTP 呼叫。" },
+            { q: "資料安全性如何？", a: "所有資料透過 HTTPS 加密傳輸，AI 推論在台灣本地伺服器執行，不經第三方雲端。" },
+          ].map((item) => (
+            <details class="group rounded-xl border border-border bg-bg-card">
+              <summary class="flex cursor-pointer items-center justify-between px-5 py-4 text-sm font-semibold text-text-heading">
+                {item.q}
+                <svg class="h-4 w-4 shrink-0 text-text-muted transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <p class="px-5 pb-4 text-sm leading-relaxed text-text-muted">{item.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<!-- Payment Modal -->
+<div id="pay-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+  <div class="mx-4 w-full max-w-md rounded-2xl border border-border bg-bg-card p-6 shadow-2xl">
+    <h2 class="mb-1 text-xl font-black" id="pay-title">訂閱方案</h2>
+    <p class="mb-5 text-sm text-text-muted" id="pay-subtitle"></p>
+    <form id="pay-form" class="space-y-3">
+      <input type="hidden" id="pay-plan" />
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-text-muted">公司名稱 *</label>
+        <input type="text" id="pay-company" required placeholder="例：大同營造股份有限公司"
+          class="w-full rounded-xl border border-border bg-bg px-4 py-2.5 text-sm text-text outline-none focus:border-accent" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-text-muted">聯絡人 *</label>
+          <input type="text" id="pay-name" required placeholder="您的姓名"
+            class="w-full rounded-xl border border-border bg-bg px-4 py-2.5 text-sm text-text outline-none focus:border-accent" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-text-muted">Email *</label>
+          <input type="email" id="pay-email" required placeholder="you@company.com"
+            class="w-full rounded-xl border border-border bg-bg px-4 py-2.5 text-sm text-text outline-none focus:border-accent" />
+        </div>
+      </div>
+      <p class="text-xs text-text-muted">點擊下方將跳轉至藍新金流安全付款頁面，支援信用卡、ATM 轉帳、超商繳費。</p>
+      <div class="flex gap-3 pt-2">
+        <button type="button" id="pay-cancel"
+          class="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold text-text-muted hover:text-text">
+          取消
+        </button>
+        <button type="submit" id="pay-submit"
+          class="flex-1 rounded-xl bg-accent py-2.5 text-sm font-semibold text-white hover:bg-accent-hover">
+          前往付款
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const API = "https://cai.zhe-wei.net";
+
+// Map product id → payment plan id
+const PLAN_MAP: Record<string, string> = {
+  "doc-ai": "starter",
+  "site-ai": "starter",
+  "plan-ai": "pro",
+  "safe-ai": "starter",
+  "vr-trainer": "pro",
+  "commander": "enterprise",
+  "disaster-ai": "starter",
+  "enterprise": "enterprise",
+};
+
+const modal = document.getElementById("pay-modal")!;
+const form = document.getElementById("pay-form") as HTMLFormElement;
+
+document.querySelectorAll(".subscribe-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const productId = btn.getAttribute("data-plan") || "";
+    const price = btn.getAttribute("data-price") || "";
+    const planId = PLAN_MAP[productId] || productId;
+
+    (document.getElementById("pay-plan") as HTMLInputElement).value = planId;
+    document.getElementById("pay-title")!.textContent = btn.closest("[class*='rounded-2xl']")?.querySelector("h3")?.textContent || "訂閱方案";
+    document.getElementById("pay-subtitle")!.textContent = price;
+
+    // Pre-fill email if logged in
+    const token = localStorage.getItem("zw_token");
+    if (token) {
+      fetch(`${API}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => {
+          const u = d.user || {};
+          if (u.email) (document.getElementById("pay-email") as HTMLInputElement).value = u.email;
+          if (u.name) (document.getElementById("pay-name") as HTMLInputElement).value = u.name;
+          if (u.company) (document.getElementById("pay-company") as HTMLInputElement).value = u.company;
+        }).catch(() => {});
+    }
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  });
+});
+
+document.getElementById("pay-cancel")?.addEventListener("click", () => {
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+});
+
+modal.addEventListener("click", (e) => {
+  if (e.target === modal) {
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+  }
+});
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("pay-submit") as HTMLButtonElement;
+  btn.disabled = true;
+  btn.textContent = "處理中…";
+
+  try {
+    const payload = {
+      plan: (document.getElementById("pay-plan") as HTMLInputElement).value,
+      email: (document.getElementById("pay-email") as HTMLInputElement).value,
+      company: (document.getElementById("pay-company") as HTMLInputElement).value,
+      name: (document.getElementById("pay-name") as HTMLInputElement).value,
+      return_url: `${location.origin}/payment/result`,
+    };
+
+    const res = await fetch(`${API}/api/v1/payment/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error("付款建立失敗");
+
+    // Response is HTML with auto-submit form — open in same window
+    const html = await res.text();
+    const newDoc = window.open("", "_self");
+    newDoc?.document.write(html);
+    newDoc?.document.close();
+  } catch (err: any) {
+    alert(err.message || "付款失敗，請稍後再試");
+    btn.disabled = false;
+    btn.textContent = "前往付款";
+  }
+});
+</script>

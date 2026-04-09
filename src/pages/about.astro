@@ -1,0 +1,97 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="關於我們" description="築未科技 — 用 AI 為台灣營建業打造下一代智慧工具。">
+  <section class="px-4 py-16">
+    <div class="mx-auto max-w-3xl">
+      <h1 class="text-4xl font-black md:text-5xl">關於築未科技</h1>
+
+      <div class="mt-8 space-y-6 text-lg leading-relaxed text-text-muted">
+        <p>
+          <strong class="text-text-heading">築未科技有限公司</strong>（Zhe-Wei Tech Co., Ltd.）致力於將人工智慧技術帶入台灣營建產業。
+          我們相信，AI 不該只是科技公司的專利 — 工地主任、安衛人員、估算工程師同樣值得擁有智慧化的工作工具。
+        </p>
+        <p>
+          從文件解析到投標模擬，從現場回報到安全檢查，我們開發的四大 AI 引擎涵蓋營建專案從投標到完工的完整生命週期。
+          所有 AI 推論都在台灣本地伺服器執行，確保資料安全與低延遲。
+        </p>
+      </div>
+
+      <!-- Company Info -->
+      <div class="mt-8 rounded-xl border border-accent/20 bg-accent/5 p-6">
+        <div class="grid gap-4 text-sm sm:grid-cols-2">
+          <div><span class="font-semibold text-text-heading">公司名稱：</span><span class="text-text-muted">築未科技有限公司</span></div>
+          <div><span class="font-semibold text-text-heading">統一編號：</span><span class="text-text-muted">60322901</span></div>
+          <div><span class="font-semibold text-text-heading">聯絡人：</span><span class="text-text-muted">胡凱翔</span></div>
+          <div><span class="font-semibold text-text-heading">電話：</span><span class="text-text-muted">0975-705-110</span></div>
+          <div><span class="font-semibold text-text-heading">LINE ID：</span><span class="text-text-muted">faint45</span></div>
+          <div><span class="font-semibold text-text-heading">Email：</span><span class="text-text-muted">hello@zhe-wei.net</span></div>
+        </div>
+      </div>
+
+      <!-- Values -->
+      <div class="mt-12 grid gap-6 sm:grid-cols-2">
+        {[
+          {
+            title: "在地化",
+            desc: "繁體中文介面、台灣營建法規、本地單價資料庫。不是翻譯版，是為台灣而生。",
+            icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064",
+          },
+          {
+            title: "資料主權",
+            desc: "AI 推論在台灣本地 GPU 伺服器執行。你的圖紙、報價、施工資料不經過任何第三方雲端。",
+            icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
+          },
+          {
+            title: "漸進導入",
+            desc: "不需要一次全面數位轉型。從一個套件開始試用，確認有效再擴展。",
+            icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+          },
+          {
+            title: "實戰驗證",
+            desc: "投標模擬已通過 Monte Carlo 驗證，蒸餾引擎持續從實際資料學習校正。",
+            icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+          },
+        ].map((v) => (
+          <div class="rounded-xl border border-border bg-bg-card p-5">
+            <svg class="mb-3 h-6 w-6 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={v.icon} />
+            </svg>
+            <h3 class="font-bold text-text-heading">{v.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-text-muted">{v.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <!-- Tech Stack -->
+      <div class="mt-12 rounded-xl border border-border bg-bg-card p-6">
+        <h2 class="text-xl font-bold">技術架構</h2>
+        <div class="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+          {[
+            { label: "AI 推論", value: "Ollama + Qwen3 14B（本地 GPU）" },
+            { label: "向量搜尋", value: "Qdrant（語意檢索+RAG）" },
+            { label: "後端框架", value: "Python FastAPI（非同步高效能）" },
+            { label: "自動化", value: "n8n + LINE/Telegram Bot" },
+            { label: "部署", value: "Docker + Cloudflare Tunnel" },
+            { label: "監控", value: "Uptime Kuma + Grafana + Prometheus" },
+          ].map((item) => (
+            <div class="flex gap-2">
+              <span class="font-semibold text-text-heading">{item.label}：</span>
+              <span class="text-text-muted">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="mt-12 text-center">
+        <h2 class="text-2xl font-bold">有興趣合作？</h2>
+        <p class="mt-2 text-text-muted">不管是試用產品、技術合作或投資洽談，歡迎聯繫我們。</p>
+        <a href="/demo" class="mt-5 inline-flex rounded-xl bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
+          聯繫我們
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

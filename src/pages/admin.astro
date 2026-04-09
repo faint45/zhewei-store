@@ -1,0 +1,341 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="管理後台" description="築未科技管理後台">
+  <section class="px-4 py-8">
+    <div class="mx-auto max-w-6xl">
+
+      <!-- Auth gate -->
+      <div id="admin-gate" class="hidden py-20 text-center">
+        <p class="text-text-muted">權限不足。請以管理員帳號登入。</p>
+        <a href="/login" class="mt-4 inline-block rounded-xl bg-accent px-6 py-2.5 font-semibold text-white">前往登入</a>
+      </div>
+
+      <!-- Main panel -->
+      <div id="admin-panel" class="hidden">
+        <div class="mb-6 flex items-center justify-between">
+          <h1 class="text-2xl font-black">管理後台</h1>
+          <div class="flex gap-2">
+            <button id="btn-remind" class="rounded-xl border border-amber-500 px-4 py-2 text-sm font-semibold text-amber-600 hover:bg-amber-50">
+              寄試用到期提醒
+            </button>
+            <button onclick="location.reload()" class="rounded-xl border border-border px-4 py-2 text-sm text-text-muted hover:text-text">
+              重新整理
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats cards -->
+        <div id="stats-grid" class="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4"></div>
+
+        <!-- Tabs -->
+        <div class="mb-4 flex gap-1 rounded-xl bg-bg-card p-1 border border-border w-fit">
+          <button class="admin-tab active-tab rounded-lg px-4 py-2 text-sm font-semibold" data-tab="users">用戶管理</button>
+          <button class="admin-tab rounded-lg px-4 py-2 text-sm font-semibold text-text-muted" data-tab="payments">付款紀錄</button>
+        </div>
+
+        <!-- Users tab -->
+        <div id="tab-users">
+          <div class="mb-3 flex gap-2">
+            <input id="user-search" type="text" placeholder="搜尋 Email / 公司..."
+              class="w-64 rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent" />
+            <select id="plan-filter" class="rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent">
+              <option value="">全部方案</option>
+              <option value="trial">試用中</option>
+              <option value="starter">入門</option>
+              <option value="pro">進階</option>
+              <option value="enterprise">企業</option>
+              <option value="free">免費</option>
+            </select>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-border">
+            <table class="w-full text-sm">
+              <thead class="bg-bg-card text-xs font-semibold text-text-muted">
+                <tr>
+                  <th class="px-4 py-3 text-left">Email / 公司</th>
+                  <th class="px-4 py-3 text-left">方案</th>
+                  <th class="px-4 py-3 text-left">試用剩餘</th>
+                  <th class="px-4 py-3 text-left">加入日期</th>
+                  <th class="px-4 py-3 text-left">操作</th>
+                </tr>
+              </thead>
+              <tbody id="users-table" class="divide-y divide-border"></tbody>
+            </table>
+          </div>
+          <p id="users-count" class="mt-2 text-xs text-text-muted"></p>
+        </div>
+
+        <!-- Payments tab -->
+        <div id="tab-payments" class="hidden">
+          <div class="overflow-x-auto rounded-xl border border-border">
+            <table class="w-full text-sm">
+              <thead class="bg-bg-card text-xs font-semibold text-text-muted">
+                <tr>
+                  <th class="px-4 py-3 text-left">訂單編號</th>
+                  <th class="px-4 py-3 text-left">Email</th>
+                  <th class="px-4 py-3 text-left">方案</th>
+                  <th class="px-4 py-3 text-left">金額</th>
+                  <th class="px-4 py-3 text-left">狀態</th>
+                  <th class="px-4 py-3 text-left">時間</th>
+                </tr>
+              </thead>
+              <tbody id="payments-table" class="divide-y divide-border"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit user modal -->
+      <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="mx-4 w-full max-w-sm rounded-2xl border border-border bg-bg-card p-6 shadow-2xl">
+          <h3 class="mb-4 font-black">修改用戶</h3>
+          <p id="edit-uid" class="mb-3 text-xs text-text-muted"></p>
+          <div class="space-y-3">
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-text-muted">方案</label>
+              <select id="edit-plan" class="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent">
+                <option value="trial">試用</option>
+                <option value="free">免費</option>
+                <option value="starter">入門 NT$15,000/月</option>
+                <option value="pro">進階 NT$80,000/案</option>
+                <option value="enterprise">企業 NT$50,000/月</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-semibold text-text-muted">角色</label>
+              <select id="edit-role" class="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent">
+                <option value="worker">一般用戶</option>
+                <option value="manager">管理員</option>
+                <option value="admin">超級管理員</option>
+              </select>
+            </div>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" id="edit-reset-trial" class="rounded" />
+              重設試用期（再給 14 天）
+            </label>
+          </div>
+          <div class="mt-5 flex gap-3">
+            <button id="edit-cancel" class="flex-1 rounded-xl border border-border py-2 text-sm text-text-muted">取消</button>
+            <button id="edit-save" class="flex-1 rounded-xl bg-accent py-2 text-sm font-semibold text-white hover:bg-accent-hover">儲存</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .active-tab { background: var(--color-accent); color: #fff; }
+  .plan-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .plan-trial   { background: #fef3c7; color: #92400e; }
+  .plan-starter { background: #dbeafe; color: #1e40af; }
+  .plan-pro     { background: #ede9fe; color: #5b21b6; }
+  .plan-enterprise { background: #d1fae5; color: #065f46; }
+  .plan-free    { background: #f3f4f6; color: #6b7280; }
+</style>
+
+<script>
+const API = "https://cai.zhe-wei.net";
+const token = localStorage.getItem("zw_token");
+
+async function apiFetch(path: string, opts: RequestInit = {}) {
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(opts.headers || {}) },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+// ─── Init ─────────────────────────────────────────
+async function init() {
+  if (!token) { showGate(); return; }
+  try {
+    const me = await apiFetch("/api/v1/auth/me");
+    if (me.user?.role !== "admin") { showGate(); return; }
+  } catch { showGate(); return; }
+
+  document.getElementById("admin-gate")!.classList.add("hidden");
+  document.getElementById("admin-panel")!.classList.remove("hidden");
+
+  loadStats();
+  loadUsers();
+  loadPayments();
+}
+
+function showGate() {
+  document.getElementById("admin-gate")!.classList.remove("hidden");
+}
+
+// ─── Stats ────────────────────────────────────────
+async function loadStats() {
+  const data = await apiFetch("/api/v1/admin/stats");
+  const grid = document.getElementById("stats-grid")!;
+  const cards = [
+    { label: "總用戶", value: data.total_users, color: "text-accent" },
+    { label: "試用中用戶", value: data.plan_breakdown?.trial ?? 0, color: "text-amber-500" },
+    { label: "試用即將到期", value: data.trial_expiring_soon, color: "text-red-500" },
+    { label: "累計營收 NT$", value: (data.total_revenue_twd || 0).toLocaleString(), color: "text-success" },
+  ];
+  grid.innerHTML = cards.map(c => `
+    <div class="rounded-xl border border-border bg-bg-card p-4">
+      <p class="text-xs text-text-muted">${c.label}</p>
+      <p class="mt-1 text-2xl font-black ${c.color}">${c.value}</p>
+    </div>`).join("");
+}
+
+// ─── Users ────────────────────────────────────────
+let allUsers: any[] = [];
+
+async function loadUsers() {
+  const data = await apiFetch("/api/v1/admin/users");
+  allUsers = data.users || [];
+  renderUsers(allUsers);
+}
+
+function renderUsers(users: any[]) {
+  const tbody = document.getElementById("users-table")!;
+  document.getElementById("users-count")!.textContent = `共 ${users.length} 位用戶`;
+  tbody.innerHTML = users.map(u => {
+    const planClass = `plan-badge plan-${u.plan}`;
+    const trialBadge = u.plan === "trial"
+      ? `<span class="ml-1 text-xs ${u.trial_days_left <= 1 ? 'text-red-500' : 'text-amber-600'}">${u.trial_days_left}天</span>`
+      : "";
+    const date = u.created_at ? u.created_at.slice(0, 10) : "—";
+    return `<tr class="hover:bg-bg-card/50">
+      <td class="px-4 py-3">
+        <div class="font-medium">${u.email}</div>
+        <div class="text-xs text-text-muted">${u.company || u.name || ""}</div>
+      </td>
+      <td class="px-4 py-3"><span class="${planClass}">${planLabel(u.plan)}</span>${trialBadge}</td>
+      <td class="px-4 py-3 text-text-muted">${u.plan === "trial" ? (u.trial_ends_at?.slice(0,10) || "—") : "—"}</td>
+      <td class="px-4 py-3 text-text-muted">${date}</td>
+      <td class="px-4 py-3">
+        <button onclick="openEdit('${u.user_id}','${u.plan}','${u.role}')"
+          class="rounded-lg border border-border px-3 py-1 text-xs hover:border-accent hover:text-accent">
+          編輯
+        </button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function planLabel(plan: string) {
+  return { trial: "試用", free: "免費", starter: "入門", pro: "進階", enterprise: "企業" }[plan] || plan;
+}
+
+// Filter
+document.getElementById("user-search")?.addEventListener("input", filterUsers);
+document.getElementById("plan-filter")?.addEventListener("change", filterUsers);
+
+function filterUsers() {
+  const q = (document.getElementById("user-search") as HTMLInputElement).value.toLowerCase();
+  const plan = (document.getElementById("plan-filter") as HTMLSelectElement).value;
+  renderUsers(allUsers.filter(u =>
+    (!q || u.email.toLowerCase().includes(q) || (u.company || "").toLowerCase().includes(q)) &&
+    (!plan || u.plan === plan)
+  ));
+}
+
+// ─── Payments ─────────────────────────────────────
+async function loadPayments() {
+  const data = await apiFetch("/api/v1/admin/payments");
+  const tbody = document.getElementById("payments-table")!;
+  const orders = data.orders || [];
+  tbody.innerHTML = orders.map((o: any) => {
+    const statusColor = o.status === "paid" ? "text-success" : "text-red-400";
+    return `<tr class="hover:bg-bg-card/50">
+      <td class="px-4 py-3 font-mono text-xs">${o.order_no}</td>
+      <td class="px-4 py-3">${o.email}</td>
+      <td class="px-4 py-3"><span class="plan-badge plan-${o.plan}">${planLabel(o.plan)}</span></td>
+      <td class="px-4 py-3">NT$ ${(o.amount || 0).toLocaleString()}</td>
+      <td class="px-4 py-3 font-semibold ${statusColor}">${o.status}</td>
+      <td class="px-4 py-3 text-text-muted text-xs">${(o.created_at || "").slice(0,16)}</td>
+    </tr>`;
+  }).join("") || '<tr><td colspan="6" class="px-4 py-8 text-center text-text-muted">尚無付款紀錄</td></tr>';
+}
+
+// ─── Tabs ─────────────────────────────────────────
+document.querySelectorAll(".admin-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".admin-tab").forEach(b => {
+      b.classList.remove("active-tab");
+      b.classList.add("text-text-muted");
+    });
+    btn.classList.add("active-tab");
+    btn.classList.remove("text-text-muted");
+    const tab = btn.getAttribute("data-tab")!;
+    document.getElementById("tab-users")!.classList.toggle("hidden", tab !== "users");
+    document.getElementById("tab-payments")!.classList.toggle("hidden", tab !== "payments");
+  });
+});
+
+// ─── Edit modal ───────────────────────────────────
+let editingUid = "";
+
+function openEdit(uid: string, plan: string, role: string) {
+  editingUid = uid;
+  (document.getElementById("edit-plan") as HTMLSelectElement).value = plan;
+  (document.getElementById("edit-role") as HTMLSelectElement).value = role;
+  (document.getElementById("edit-reset-trial") as HTMLInputElement).checked = false;
+  document.getElementById("edit-uid")!.textContent = `用戶 ID: ${uid}`;
+  const modal = document.getElementById("edit-modal")!;
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+document.getElementById("edit-cancel")?.addEventListener("click", closeEdit);
+document.getElementById("edit-modal")?.addEventListener("click", (e) => {
+  if (e.target === document.getElementById("edit-modal")) closeEdit();
+});
+
+function closeEdit() {
+  const modal = document.getElementById("edit-modal")!;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+document.getElementById("edit-save")?.addEventListener("click", async () => {
+  const btn = document.getElementById("edit-save") as HTMLButtonElement;
+  btn.disabled = true;
+  btn.textContent = "儲存中…";
+  try {
+    await apiFetch(`/api/v1/admin/users/${encodeURIComponent(editingUid)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        plan: (document.getElementById("edit-plan") as HTMLSelectElement).value,
+        role: (document.getElementById("edit-role") as HTMLSelectElement).value,
+        reset_trial: (document.getElementById("edit-reset-trial") as HTMLInputElement).checked,
+      }),
+    });
+    closeEdit();
+    loadUsers();
+    loadStats();
+  } catch (err: any) {
+    alert("儲存失敗：" + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "儲存";
+  }
+});
+
+// ─── Trial remind ─────────────────────────────────
+document.getElementById("btn-remind")?.addEventListener("click", async () => {
+  const btn = document.getElementById("btn-remind") as HTMLButtonElement;
+  btn.disabled = true;
+  try {
+    const res = await apiFetch("/api/v1/admin/trial-remind?days_threshold=3", { method: "POST" });
+    alert(`已發送 ${res.sent?.length ?? 0} 封提醒信`);
+  } catch (err: any) {
+    alert("發送失敗：" + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ─── Start ────────────────────────────────────────
+(window as any).openEdit = openEdit;
+init();
+</script>

@@ -1,0 +1,256 @@
+---
+// AI reads contract → extracts tasks → generates CPM schedule with reminders
+---
+
+<div id="ctsDemoWrap" class="cts-wrap">
+  <!-- Left: Document viewer -->
+  <div class="cts-doc">
+    <div class="cts-doc-header">
+      <svg class="cts-doc-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <span>工程契約書.pdf</span>
+      <span class="cts-badge" id="ctsBadge">AI 解析中…</span>
+    </div>
+    <div class="cts-doc-body" id="ctsDocBody">
+      <p class="cts-line" data-group="0">第一條 工程名稱</p>
+      <p class="cts-line" data-group="0">台北市信義區 RC 住宅新建工程，地上 12 層，地下 2 層。</p>
+      <p class="cts-line cts-gap"></p>
+      <p class="cts-line" data-group="1">第三條 <span class="cts-hl" id="hl1">工期</span></p>
+      <p class="cts-line" data-group="1">開工日：民國 115 年 5 月 1 日</p>
+      <p class="cts-line cts-highlight-row" data-group="1" id="hl2">竣工日：民國 116 年 6 月 30 日（<span class="cts-hl">工期 425 天</span>）</p>
+      <p class="cts-line cts-gap"></p>
+      <p class="cts-line" data-group="2">第五條 <span class="cts-hl" id="hl3">里程碑節點</span></p>
+      <p class="cts-line cts-highlight-row" data-group="2" id="hl4">· 地下室完成：開工後 <span class="cts-hl">120 天</span></p>
+      <p class="cts-line cts-highlight-row" data-group="2" id="hl5">· RC 主體封頂：開工後 <span class="cts-hl">280 天</span></p>
+      <p class="cts-line cts-highlight-row" data-group="2" id="hl6">· 竣工驗收：開工後 <span class="cts-hl">420 天</span></p>
+      <p class="cts-line cts-gap"></p>
+      <p class="cts-line" data-group="3">第八條 <span class="cts-hl" id="hl7">逾期罰款</span></p>
+      <p class="cts-line cts-highlight-row" data-group="3" id="hl8">每逾期 1 天，罰款合約總價之 <span class="cts-hl">千分之一</span>，上限 10%。</p>
+    </div>
+  </div>
+
+  <!-- Arrow -->
+  <div class="cts-arrow">
+    <div class="cts-arrow-line" id="ctsArrow"></div>
+    <div class="cts-arrow-label">AI 提取</div>
+  </div>
+
+  <!-- Right: Generated schedule + reminders -->
+  <div class="cts-result" id="ctsResult">
+    <div class="cts-result-section" id="ctsR1" style="opacity:0">
+      <div class="cts-result-title">📅 自動排程</div>
+      <div class="cts-gantt">
+        <div class="cg-row"><div class="cg-label">地下工程</div><div class="cg-bar-wrap"><div class="cg-bar cg-crit" style="left:0%;width:28%"></div></div></div>
+        <div class="cg-row"><div class="cg-label">RC 結構</div><div class="cg-bar-wrap"><div class="cg-bar cg-crit" style="left:28%;width:37%"></div></div></div>
+        <div class="cg-row"><div class="cg-label">水電配管</div><div class="cg-bar-wrap"><div class="cg-bar" style="left:35%;width:30%"></div></div></div>
+        <div class="cg-row"><div class="cg-label">裝修工程</div><div class="cg-bar-wrap"><div class="cg-bar cg-crit" style="left:65%;width:28%"></div></div></div>
+        <div class="cg-row"><div class="cg-label">驗收交屋</div><div class="cg-bar-wrap"><div class="cg-bar cg-finish" style="left:93%;width:7%"></div></div></div>
+      </div>
+      <div class="cts-stat">總工期 <b>425天</b> · 關鍵路徑 <b class="cts-red">3項</b></div>
+    </div>
+
+    <div class="cts-result-section" id="ctsR2" style="opacity:0;margin-top:14px">
+      <div class="cts-result-title">🔔 AI 自動建立提醒</div>
+      <div id="ctsReminders"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .cts-wrap {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    align-items: flex-start;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  .cts-doc {
+    background: #111d2a;
+    border-radius: 10px;
+    border: 1px solid #243040;
+    overflow: hidden;
+  }
+  .cts-doc-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #1a2738;
+    border-bottom: 1px solid #243040;
+    font-size: 12px;
+    color: #aab;
+  }
+  .cts-doc-icon { width: 16px; height: 16px; color: #5588bb; flex-shrink: 0; }
+  .cts-badge {
+    margin-left: auto;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: #f97316;
+    color: #fff;
+    transition: all .5s;
+  }
+  .cts-badge.done { background: #22c55e; }
+  .cts-doc-body { padding: 12px; font-size: 11px; line-height: 1.9; color: #8899bb; }
+  .cts-line { margin: 0; transition: all .4s; }
+  .cts-gap { height: 6px; }
+  .cts-highlight-row { border-radius: 4px; padding: 0 4px; transition: background .4s; }
+  .cts-hl { color: #f97316; font-weight: 600; }
+  .cts-highlight-row.lit { background: rgba(249,115,22,0.12); }
+
+  .cts-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 60px;
+    gap: 6px;
+  }
+  .cts-arrow-line {
+    width: 2px;
+    height: 0;
+    background: linear-gradient(to bottom, #f97316, #f97316);
+    transition: height .8s;
+    position: relative;
+  }
+  .cts-arrow-line.grow { height: 80px; }
+  .cts-arrow-line::after {
+    content: '▼';
+    position: absolute;
+    bottom: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #f97316;
+    font-size: 12px;
+  }
+  .cts-arrow-label { font-size: 10px; color: #f97316; writing-mode: vertical-rl; margin-top: 18px; }
+
+  .cts-result { display: flex; flex-direction: column; }
+  .cts-result-section { transition: opacity .5s, transform .5s; transform: translateX(10px); }
+  .cts-result-section.show { opacity: 1 !important; transform: translateX(0); }
+  .cts-result-title { font-size: 12px; font-weight: 700; color: #ccd; margin-bottom: 10px; }
+
+  .cts-gantt { display: flex; flex-direction: column; gap: 5px; }
+  .cg-row { display: flex; align-items: center; gap: 6px; }
+  .cg-label { font-size: 10px; color: #778; width: 52px; flex-shrink: 0; }
+  .cg-bar-wrap { flex: 1; height: 12px; background: #1a2738; border-radius: 4px; position: relative; overflow: hidden; }
+  .cg-bar {
+    position: absolute;
+    height: 100%;
+    background: #3b82f6;
+    border-radius: 4px;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .6s ease;
+  }
+  .cg-bar.grow { transform: scaleX(1); }
+  .cg-bar.cg-crit { background: #ef4444; }
+  .cg-bar.cg-finish { background: #22c55e; }
+  .cts-stat { font-size: 11px; color: #778; margin-top: 8px; }
+  .cts-red { color: #ef4444; }
+
+  .cts-reminder {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px 10px;
+    border-radius: 7px;
+    font-size: 11px;
+    margin-bottom: 6px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .3s, transform .3s;
+    border-left: 3px solid;
+  }
+  .cts-reminder.show { opacity: 1; transform: translateY(0); }
+  .cts-reminder.warn { background: #2d1a0a; border-color: #f97316; color: #ffbb88; }
+  .cts-reminder.info { background: #0a1a2d; border-color: #3b82f6; color: #88bbff; }
+  .cts-reminder.danger { background: #2d0a0a; border-color: #ef4444; color: #ffaaaa; }
+  .cts-reminder-icon { font-size: 14px; flex-shrink: 0; }
+
+  @media (max-width: 680px) {
+    .cts-wrap { grid-template-columns: 1fr; }
+    .cts-arrow { display: none; }
+  }
+</style>
+
+<script>
+(function() {
+  const REMINDERS = [
+    { style: 'warn', icon: '⏰', text: '地下室完成期限：115/8/29（剩 48 天）\nLINE 通知已設定' },
+    { style: 'danger', icon: '🚨', text: '逾期風險：若 RC 封頂延誤 > 15 天\n預估罰款 NT$128 萬' },
+    { style: 'info', icon: '📋', text: '竣工驗收：116/6/25 前提交完工資料\n自動提醒業主窗口' },
+  ];
+
+  function run() {
+    // Reset
+    document.querySelectorAll('.cts-highlight-row').forEach(el => el.classList.remove('lit'));
+    document.querySelectorAll('.cg-bar').forEach(el => el.classList.remove('grow'));
+    document.querySelectorAll('.cts-reminder').forEach(el => el.remove());
+    const r1 = document.getElementById('ctsR1') as HTMLElement;
+    const r2 = document.getElementById('ctsR2') as HTMLElement;
+    const arrow = document.getElementById('ctsArrow') as HTMLElement;
+    const badge = document.getElementById('ctsBadge') as HTMLElement;
+    if (r1) { r1.style.opacity = '0'; r1.classList.remove('show'); }
+    if (r2) { r2.style.opacity = '0'; r2.classList.remove('show'); }
+    if (arrow) arrow.classList.remove('grow');
+    if (badge) { badge.textContent = 'AI 解析中…'; badge.classList.remove('done'); }
+
+    // Highlight groups one by one
+    [1,2,3,4,5,6,7,8].forEach((n, i) => {
+      setTimeout(() => {
+        const el = document.getElementById(`hl${n}`) as HTMLElement;
+        if (el) {
+          const row = el.closest('.cts-highlight-row') as HTMLElement;
+          if (row) row.classList.add('lit');
+        }
+      }, i * 300 + 400);
+    });
+
+    // Badge done
+    setTimeout(() => {
+      if (badge) { badge.textContent = '解析完成 ✓'; badge.classList.add('done'); }
+    }, 2800);
+
+    // Arrow grows
+    setTimeout(() => { if (arrow) arrow.classList.add('grow'); }, 3200);
+
+    // Show gantt
+    setTimeout(() => {
+      if (r1) r1.classList.add('show');
+      setTimeout(() => {
+        document.querySelectorAll('.cg-bar').forEach((el, i) => {
+          setTimeout(() => el.classList.add('grow'), i * 120);
+        });
+      }, 200);
+    }, 3800);
+
+    // Show reminders
+    setTimeout(() => {
+      if (r2) r2.classList.add('show');
+      const container = document.getElementById('ctsReminders') as HTMLElement;
+      REMINDERS.forEach((r, i) => {
+        setTimeout(() => {
+          const div = document.createElement('div');
+          div.className = `cts-reminder ${r.style}`;
+          div.innerHTML = `<div class="cts-reminder-icon">${r.icon}</div><div style="white-space:pre-line">${r.text}</div>`;
+          container.appendChild(div);
+          setTimeout(() => div.classList.add('show'), 10);
+        }, i * 600);
+      });
+    }, 5000);
+
+    // Loop
+    setTimeout(run, 11000);
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { observer.disconnect(); run(); } });
+  }, { threshold: 0.3 });
+  const el = document.getElementById('ctsDemoWrap');
+  if (el) observer.observe(el);
+})();
+</script>

@@ -1,0 +1,112 @@
+---
+const navLinks = [
+  { href: "/", label: "首頁" },
+  { href: "/products", label: "產品" },
+  { href: "/academy", label: "工程學院" },
+  { href: "/console", label: "操作台" },
+  { href: "/demo/simulation", label: "互動模擬" },
+  { href: "/pricing", label: "定價" },
+  { href: "/docs", label: "API 文件" },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<nav class="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/80 backdrop-blur-xl">
+  <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <a href="/" class="flex items-center gap-2 text-lg font-bold text-text-heading">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-amber-500 text-sm text-white">
+        築
+      </span>
+      <span>築未科技</span>
+    </a>
+
+    <div class="hidden items-center gap-1 md:flex">
+      {navLinks.map((link) => (
+        <a
+          href={link.href}
+          class:list={[
+            "rounded-lg px-3 py-2 text-sm transition-colors",
+            currentPath === link.href
+              ? "bg-accent/10 text-accent"
+              : "text-text-muted hover:bg-bg-card hover:text-text",
+          ]}
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+
+    <a
+      id="nav-cta"
+      href="/login"
+      class="hidden rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover md:block"
+    >
+      登入 / 註冊
+    </a>
+    <a
+      id="nav-dashboard"
+      href="/dashboard"
+      class="hidden rounded-lg border border-accent/30 px-4 py-2 text-sm font-semibold text-accent transition-colors hover:bg-accent/10 md:block"
+    >
+      儀表板
+    </a>
+
+    <!-- Mobile menu button -->
+    <button
+      id="mobile-menu-btn"
+      class="flex h-10 w-10 items-center justify-center rounded-lg text-text-muted hover:bg-bg-card md:hidden"
+      aria-label="選單"
+    >
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="hidden border-t border-border bg-bg px-4 pb-4 md:hidden">
+    {navLinks.map((link) => (
+      <a
+        href={link.href}
+        class:list={[
+          "block rounded-lg px-3 py-2.5 text-sm transition-colors",
+          currentPath === link.href
+            ? "bg-accent/10 text-accent"
+            : "text-text-muted hover:bg-bg-card hover:text-text",
+        ]}
+      >
+        {link.label}
+      </a>
+    ))}
+    <a
+      id="mobile-cta"
+      href="/login"
+      class="mt-2 block rounded-lg bg-accent px-4 py-2.5 text-center text-sm font-semibold text-white"
+    >
+      登入 / 註冊
+    </a>
+    <a
+      id="mobile-dashboard"
+      href="/dashboard"
+      class="mt-2 hidden rounded-lg border border-accent/30 px-4 py-2.5 text-center text-sm font-semibold text-accent"
+    >
+      儀表板
+    </a>
+  </div>
+</nav>
+
+<script>
+  const btn = document.getElementById("mobile-menu-btn");
+  const menu = document.getElementById("mobile-menu");
+  btn?.addEventListener("click", () => menu?.classList.toggle("hidden"));
+
+  // Show dashboard link if logged in (desktop + mobile)
+  const token = localStorage.getItem("zw_token");
+  if (token) {
+    document.getElementById("nav-cta")?.classList.add("!hidden");
+    document.getElementById("nav-dashboard")?.classList.remove("hidden");
+    document.getElementById("mobile-cta")?.classList.add("hidden");
+    document.getElementById("mobile-dashboard")?.classList.remove("hidden");
+  }
+</script>

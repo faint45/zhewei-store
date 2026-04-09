@@ -1,0 +1,50 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductDetail from "../../components/ProductDetail.astro";
+import DemoTerminal from "../../components/DemoTerminal.astro";
+import { products } from "../../content/products";
+
+const product = products.find((p) => p.id === "disaster-ai")!;
+
+const requestBody = `{
+  "location": "台北市信義區",
+  "lat": 25.033,
+  "lng": 121.565,
+  "project_name": "信義區RC住宅新建工程"
+}`;
+
+const responseJson = `{
+  "location": "台北市信義區",
+  "rain_probability": 75,
+  "wind_speed_ms": 8.5,
+  "weather_desc": "短暫陣雨或雷雨",
+  "rule_score": 0.625,
+  "risk_level": "medium",
+  "actions": [
+    "暫停混凝土澆置",
+    "覆蓋開挖面",
+    "啟動排水泵浦"
+  ],
+  "explanation": "降雨機率75%且伴隨雷雨，建議暫停露天混凝土作業。開挖面需立即覆蓋防止積水。歷史資料顯示信義區在此降雨量下曾發生基坑積水事件。",
+  "rag_references": 3
+}`;
+---
+
+<BaseLayout title={product.name} description={product.description}>
+  <ProductDetail product={product}>
+    <div slot="demo" class="mb-12">
+      <h2 class="mb-2 text-2xl font-bold">互動 Demo — 水災風險預測</h2>
+      <p class="mb-5 text-sm text-text-muted">
+        輸入工地位置，AI 即時擷取氣象資料 + RAG 歷史災害比對，產出風險等級與應變建議。
+      </p>
+      <DemoTerminal
+        productId="disaster-ai"
+        method="POST"
+        endpoint="/api/v1/disaster/flood/predict"
+        requestBody={requestBody}
+        responseJson={responseJson}
+        label="執行水災預測"
+      />
+    </div>
+  </ProductDetail>
+</BaseLayout>

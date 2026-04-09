@@ -1,0 +1,199 @@
+---
+// Animated disaster alert timeline — typhoon tracking + earthquake + flood warning
+---
+
+<div class="da-wrap" id="daDemo">
+  <!-- Map-like display -->
+  <div class="da-map">
+    <div class="da-map-header">
+      <span class="da-map-dot pulse-red"></span>
+      <span class="da-map-title">防災即時監控</span>
+      <span class="da-map-time" id="daTime">--:--</span>
+    </div>
+    <div class="da-map-body">
+      <!-- Animated Taiwan outline (simplified SVG) -->
+      <svg viewBox="0 0 200 300" class="da-taiwan">
+        <path d="M100,20 C115,30 125,60 130,90 C135,120 140,150 135,180 C130,210 125,240 115,260 C110,270 100,280 95,275 C85,265 75,240 70,210 C65,180 68,150 72,120 C76,90 85,50 100,20Z" fill="#1a2738" stroke="#30363d" stroke-width="1.5"/>
+        <!-- Project markers -->
+        <circle id="daSite1" cx="110" cy="100" r="4" fill="#3fb950" class="da-site"/>
+        <circle id="daSite2" cx="95" cy="150" r="4" fill="#3fb950" class="da-site"/>
+        <circle id="daSite3" cx="105" cy="200" r="4" fill="#3fb950" class="da-site"/>
+        <!-- Typhoon (hidden initially) -->
+        <g id="daTyphoon" style="opacity:0" class="da-typhoon-g">
+          <circle cx="160" cy="80" r="18" fill="none" stroke="#f85149" stroke-width="1.5" stroke-dasharray="4,3" class="da-spin"/>
+          <circle cx="160" cy="80" r="10" fill="none" stroke="#f0883e" stroke-width="1" stroke-dasharray="3,2" class="da-spin-rev"/>
+          <circle cx="160" cy="80" r="4" fill="#f85149"/>
+          <text x="160" y="108" text-anchor="middle" fill="#f85149" font-size="8" font-weight="bold">🌀</text>
+        </g>
+        <!-- Earthquake epicenter -->
+        <g id="daQuake" style="opacity:0">
+          <circle cx="85" cy="170" r="0" fill="none" stroke="#fbbf24" stroke-width="2" class="da-quake-ring"/>
+          <circle cx="85" cy="170" r="0" fill="none" stroke="#fbbf24" stroke-width="1" class="da-quake-ring2"/>
+          <text x="85" y="158" text-anchor="middle" fill="#fbbf24" font-size="8">⚡</text>
+        </g>
+        <!-- Rain overlay -->
+        <g id="daRain" style="opacity:0">
+          <line x1="90" y1="85" x2="88" y2="95" stroke="#60a5fa" stroke-width="0.8" opacity="0.6"/>
+          <line x1="100" y1="80" x2="98" y2="90" stroke="#60a5fa" stroke-width="0.8" opacity="0.6"/>
+          <line x1="115" y1="90" x2="113" y2="100" stroke="#60a5fa" stroke-width="0.8" opacity="0.6"/>
+          <line x1="105" y1="95" x2="103" y2="105" stroke="#60a5fa" stroke-width="0.8" opacity="0.5"/>
+          <line x1="95" y1="100" x2="93" y2="110" stroke="#60a5fa" stroke-width="0.8" opacity="0.4"/>
+        </g>
+        <!-- Site labels -->
+        <text x="118" y="97" fill="#8b949e" font-size="6">工地A</text>
+        <text x="78" y="147" fill="#8b949e" font-size="6">工地B</text>
+        <text x="113" y="197" fill="#8b949e" font-size="6">工地C</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Alert timeline -->
+  <div class="da-timeline">
+    <div class="da-tl-title">警報時間軸</div>
+    <div class="da-tl-events" id="daEvents"></div>
+  </div>
+</div>
+
+<style>
+  .da-wrap { display:grid; grid-template-columns:220px 1fr; gap:16px; max-width:680px; margin:0 auto; }
+  .da-map { background:#0d1117; border-radius:10px; border:1px solid #30363d; overflow:hidden; }
+  .da-map-header { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#161b22; border-bottom:1px solid #30363d; font-size:11px; color:#8b949e; }
+  .da-map-dot { width:8px; height:8px; border-radius:50%; background:#f85149; }
+  .pulse-red { animation:pulseR 1.5s infinite; }
+  @keyframes pulseR { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+  .da-map-title { font-weight:700; color:#e6edf3; }
+  .da-map-time { margin-left:auto; font-family:monospace; color:#6e7681; }
+  .da-map-body { padding:10px; display:flex; justify-content:center; }
+  .da-taiwan { width:160px; height:auto; }
+  .da-site { transition:fill .3s, r .3s; }
+  .da-site.warn { fill:#f0883e; r:6; }
+  .da-site.danger { fill:#f85149; r:8; animation:pulseR 1s infinite; }
+  .da-spin { animation:spin 4s linear infinite; transform-origin:160px 80px; }
+  .da-spin-rev { animation:spin 3s linear infinite reverse; transform-origin:160px 80px; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .da-typhoon-g { transition:opacity .5s; }
+  .da-quake-ring, .da-quake-ring2 { transition:r .8s, opacity .8s; }
+
+  .da-timeline { background:#0d1117; border-radius:10px; border:1px solid #30363d; overflow:hidden; display:flex; flex-direction:column; }
+  .da-tl-title { font-size:11px; font-weight:700; color:#8b949e; padding:8px 12px; background:#161b22; border-bottom:1px solid #30363d; }
+  .da-tl-events { flex:1; padding:8px; overflow:hidden; display:flex; flex-direction:column; gap:6px; min-height:250px; }
+  .da-event { padding:7px 10px; border-radius:8px; font-size:10px; line-height:1.5; border-left:3px solid; opacity:0; transform:translateX(-10px); transition:opacity .3s, transform .3s; }
+  .da-event.show { opacity:1; transform:translateX(0); }
+  .da-event.info { background:#0a1a2d; border-color:#3b82f6; color:#93c5fd; }
+  .da-event.warn { background:#2d1a08; border-color:#f97316; color:#fdba74; }
+  .da-event.danger { background:#2d0a0a; border-color:#ef4444; color:#fca5a5; }
+  .da-event.success { background:#0a2d1a; border-color:#22c55e; color:#86efac; }
+  .da-event .da-event-time { font-size:9px; color:#6e7681; margin-bottom:2px; font-family:monospace; }
+  .da-event .da-event-icon { margin-right:4px; }
+
+  @media(max-width:600px) { .da-wrap { grid-template-columns:1fr; } .da-map { display:none; } }
+</style>
+
+<script>
+(function(){
+  const SEQUENCES = [
+    // Scenario 1: Typhoon approaching
+    { events: [
+      { t:0, type:"info", icon:"🛰", text:"中央氣象署：熱帶低壓增強為輕度颱風", time:"08:00", map:"typhoon_appear" },
+      { t:1200, type:"info", icon:"📡", text:"颱風距離台灣 450km，預計 36hr 後影響", time:"08:15", map:"" },
+      { t:2400, type:"warn", icon:"⚠️", text:"工地A 距颱風路徑 180km，風險：MEDIUM", time:"08:30", map:"site1_warn" },
+      { t:3600, type:"warn", icon:"📱", text:"LINE 推播：全體注意！颱風防範通知已發送", time:"08:45", map:"" },
+      { t:4800, type:"danger", icon:"🚨", text:"工地A 升級為 HIGH，風速預測 >15 m/s\n→ 停止吊裝、加固臨時設施", time:"12:00", map:"site1_danger" },
+      { t:6000, type:"success", icon:"✅", text:"n8n 自動執行：防颱 SOP 已啟動\n覆蓋開挖面 / 機具固定 / 排水待命", time:"12:30", map:"" },
+    ]},
+    // Scenario 2: Earthquake
+    { events: [
+      { t:0, type:"info", icon:"📊", text:"即時監測中… 各工地狀態正常", time:"14:22", map:"reset" },
+      { t:1500, type:"danger", icon:"🫨", text:"地震偵測！規模 5.2 深度 12km\n震央：花蓮縣壽豐鄉", time:"14:23:05", map:"quake" },
+      { t:2500, type:"danger", icon:"📱", text:"LINE 即時推播：地震警報！全部停工！\n工地B 震度 4 級 · 工地C 震度 3 級", time:"14:23:08", map:"site2_danger" },
+      { t:3800, type:"warn", icon:"🏗", text:"Structural Agent：工地B 需立即巡檢\n上次偏差 4.5cm + 震後可能擴大", time:"14:25", map:"" },
+      { t:5000, type:"success", icon:"📋", text:"Commander 自動派工：\n巡檢員 → 工地B（結構檢查）\n安衛員 → 工地C（人員清點）", time:"14:30", map:"" },
+      { t:6500, type:"info", icon:"✅", text:"工地C 回報：人員安全、結構無異常\n恢復施工許可", time:"15:10", map:"site3_ok" },
+    ]},
+    // Scenario 3: Heavy rain flood
+    { events: [
+      { t:0, type:"info", icon:"🌧", text:"降雨機率上升至 85%，累積雨量預測 80mm", time:"05:30", map:"rain" },
+      { t:1200, type:"warn", icon:"🌊", text:"水災風險評估：工地A MEDIUM (0.65)\nRAG：2024年同地點曾積水 30cm", time:"06:00", map:"site1_warn" },
+      { t:2400, type:"warn", icon:"📱", text:"LINE 推播：暫停混凝土澆置\n覆蓋鋼筋作業面、啟動排水泵", time:"06:15", map:"" },
+      { t:3600, type:"danger", icon:"🚨", text:"時雨量突破 50mm！工地A 升級 HIGH\n基坑水位上升中", time:"07:30", map:"site1_danger" },
+      { t:4800, type:"success", icon:"⚙️", text:"n8n 自動化：\n排水泵啟動 ✓ / 擋水閘板部署 ✓\n工地主任已確認", time:"07:45", map:"" },
+      { t:6000, type:"info", icon:"📉", text:"雨勢減緩，水位回降\n預計 10:00 可恢復部分作業", time:"09:00", map:"reset_ok" },
+    ]},
+  ];
+
+  let seqIdx = 0;
+
+  function updateMap(action: string) {
+    const typhoon = document.getElementById("daTyphoon");
+    const quake = document.getElementById("daQuake");
+    const rain = document.getElementById("daRain");
+    const sites = [document.getElementById("daSite1"), document.getElementById("daSite2"), document.getElementById("daSite3")];
+
+    if (action === "reset") {
+      if (typhoon) typhoon.style.opacity = "0";
+      if (quake) quake.style.opacity = "0";
+      if (rain) rain.style.opacity = "0";
+      sites.forEach(s => { if (s) { s.classList.remove("warn", "danger"); s.setAttribute("fill", "#3fb950"); } });
+    } else if (action === "typhoon_appear") {
+      if (typhoon) typhoon.style.opacity = "1";
+    } else if (action === "quake") {
+      if (quake) { quake.style.opacity = "1"; }
+      // Animate quake rings
+      const r1 = document.querySelector(".da-quake-ring") as SVGCircleElement;
+      const r2 = document.querySelector(".da-quake-ring2") as SVGCircleElement;
+      if (r1) { r1.setAttribute("r", "20"); r1.style.opacity = "0.6"; }
+      if (r2) { setTimeout(() => { r2.setAttribute("r", "35"); r2.style.opacity = "0.3"; }, 200); }
+    } else if (action === "rain") {
+      if (rain) rain.style.opacity = "1";
+    } else if (action === "site1_warn") {
+      sites[0]?.classList.add("warn");
+    } else if (action === "site1_danger") {
+      sites[0]?.classList.remove("warn"); sites[0]?.classList.add("danger");
+    } else if (action === "site2_danger") {
+      sites[1]?.classList.add("danger");
+    } else if (action === "site3_ok") {
+      sites[2]?.classList.remove("danger", "warn");
+    } else if (action === "reset_ok") {
+      sites.forEach(s => { if (s) { s.classList.remove("warn", "danger"); } });
+      if (rain) rain.style.opacity = "0.3";
+    }
+  }
+
+  function runSequence() {
+    const seq = SEQUENCES[seqIdx % SEQUENCES.length]; seqIdx++;
+    const eventsEl = document.getElementById("daEvents") as HTMLElement;
+    const timeEl = document.getElementById("daTime") as HTMLElement;
+    if (!eventsEl) return;
+
+    eventsEl.innerHTML = "";
+    updateMap("reset");
+
+    // Reset quake rings
+    const r1 = document.querySelector(".da-quake-ring") as SVGCircleElement;
+    const r2 = document.querySelector(".da-quake-ring2") as SVGCircleElement;
+    if (r1) { r1.setAttribute("r", "0"); r1.style.opacity = "1"; }
+    if (r2) { r2.setAttribute("r", "0"); r2.style.opacity = "1"; }
+
+    seq.events.forEach((ev, i) => {
+      setTimeout(() => {
+        if (timeEl) timeEl.textContent = ev.time;
+        if (ev.map) updateMap(ev.map);
+        const div = document.createElement("div");
+        div.className = `da-event ${ev.type}`;
+        div.innerHTML = `<div class="da-event-time">${ev.time}</div><span class="da-event-icon">${ev.icon}</span>${ev.text.replace(/\n/g, "<br>")}`;
+        eventsEl.appendChild(div);
+        setTimeout(() => div.classList.add("show"), 10);
+        eventsEl.scrollTop = eventsEl.scrollHeight;
+      }, ev.t);
+    });
+
+    setTimeout(runSequence, 10000);
+  }
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { obs.disconnect(); runSequence(); } });
+  }, { threshold: 0.3 });
+  const el = document.getElementById("daDemo");
+  if (el) obs.observe(el);
+})();
+</script>
