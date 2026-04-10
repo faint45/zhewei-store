@@ -34,4 +34,22 @@
   h1, h2, h3, h4 {
     @apply text-text-heading font-bold;
   }
+
+  /* Prevent horizontal overflow on mobile */
+  img, svg, video, canvas, iframe {
+    max-width: 100%;
+    height: auto;
+  }
+
+  pre, code {
+    max-width: 100%;
+    overflow-x: auto;
+    word-break: break-word;
+  }
+
+  table {
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+  }
 }

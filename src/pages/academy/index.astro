@@ -117,6 +117,20 @@ const courses = [
     </div>
   </section>
 
+  <!-- Personal Progress (from localStorage) -->
+  <section class="px-4 pb-8" id="progress-section" style="display:none">
+    <div class="mx-auto max-w-5xl">
+      <h2 class="mb-4 text-xl font-bold text-text-heading">我的進度</h2>
+      <div class="rounded-2xl border border-border bg-bg-card p-6">
+        <div class="grid gap-4 sm:grid-cols-4 text-center" id="progress-stats"></div>
+        <div class="mt-4 h-3 w-full rounded-full bg-bg overflow-hidden border border-border">
+          <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-accent to-success transition-all duration-500" style="width:0%"></div>
+        </div>
+        <p class="mt-2 text-xs text-text-muted text-center" id="progress-label"></p>
+      </div>
+    </div>
+  </section>
+
   <!-- How it works -->
   <section class="border-t border-border px-4 py-16">
     <div class="mx-auto max-w-5xl">
@@ -146,3 +160,40 @@ const courses = [
     </div>
   </section>
 </BaseLayout>
+
+<script>
+  // Load training progress from localStorage
+  try {
+    const raw = localStorage.getItem("zw_vr_progress");
+    if (raw) {
+      const data = JSON.parse(raw);
+      const passed = (data.passed || []).filter(Boolean).length;
+      const total = 3;
+      const records = data.records || [];
+      const sessions = records.length;
+      const totalTime = records.reduce((s: number, r: any) => s + (r.timeSeconds || 0), 0);
+      const avgScore = sessions > 0
+        ? Math.round(records.reduce((s: number, r: any) => s + (r.bestScore || 0), 0) / sessions)
+        : 0;
+
+      if (sessions > 0) {
+        const section = document.getElementById("progress-section");
+        const stats = document.getElementById("progress-stats");
+        const bar = document.getElementById("progress-bar");
+        const label = document.getElementById("progress-label");
+
+        if (section) section.style.display = "block";
+        if (stats) stats.innerHTML = `
+          <div><div class="text-2xl font-black text-accent">${passed}/${total}</div><div class="text-xs text-text-muted">通過關卡</div></div>
+          <div><div class="text-2xl font-black text-info">${sessions}</div><div class="text-xs text-text-muted">訓練次數</div></div>
+          <div><div class="text-2xl font-black text-success">${avgScore}</div><div class="text-xs text-text-muted">平均最高分</div></div>
+          <div><div class="text-2xl font-black" style="color:#a855f7">${Math.floor(totalTime / 60)}m</div><div class="text-xs text-text-muted">總訓練時間</div></div>
+        `;
+        if (bar) bar.style.width = `${(passed / total * 100).toFixed(0)}%`;
+        if (label) label.textContent = passed >= total
+          ? "全部通過！你已完成挖土機操作訓練。"
+          : `已完成 ${passed} / ${total} 個關卡`;
+      }
+    }
+  } catch { /* no progress */ }
+</script>
