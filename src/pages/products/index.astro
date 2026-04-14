@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import { products } from "../../content/products";
+---
+
+<BaseLayout title="產品" description="築未科技四大 AI 引擎套件 — 文件智能、工地智眼、排程成本、安全守護，為台灣營建業量身打造。">
+  <section class="px-4 py-16">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-12 text-center">
+        <h1 class="text-4xl font-black md:text-5xl">AI 工具商店</h1>
+        <p class="mt-4 text-lg text-text-muted">四大引擎，各司其職。選擇你需要的，立即開始。</p>
+      </div>
+      <div class="grid gap-6 md:grid-cols-2">
+        {products.map((p) => (
+          <ProductCard
+            id={p.id}
+            name={p.name}
+            tagline={p.tagline}
+            description={p.description}
+            icon={p.icon}
+            color={p.color}
+            features={p.features}
+          />
+        ))}
+      </div>
+
+      <!-- Bundle suggestion -->
+      <div class="mt-12 rounded-2xl border border-accent/20 bg-gradient-to-r from-accent/5 to-amber-500/5 p-8 text-center">
+        <h3 class="text-xl font-bold">全套組合最划算</h3>
+        <p class="mt-2 text-text-muted">四大引擎聯合使用，資料互通、效益倍增。投標模擬自動整合文件解析與成本引擎。</p>
+        <a href="/demo" class="mt-4 inline-flex rounded-xl bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover">
+          申請全套試用
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

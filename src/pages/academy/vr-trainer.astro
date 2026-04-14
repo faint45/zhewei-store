@@ -1,0 +1,1548 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="VR 機具訓練師"
+  description="AI 即時教練 + WebXR 沉浸式體驗 — 挖土機操作訓練模擬器。築未科技 ChuWei Engineering Academy。"
+>
+  <section class="px-4 py-6">
+    <div class="mx-auto max-w-7xl">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <div class="mb-1 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+            工程學院 — VR 訓練
+          </div>
+          <h1 class="text-2xl font-black md:text-3xl">挖土機操作訓練師</h1>
+        </div>
+        <a href="/academy" class="rounded-lg border border-border px-4 py-2 text-sm text-text-muted hover:border-accent/50 hover:text-accent">
+          返回學院
+        </a>
+      </div>
+
+      <div id="vr-container" class="rounded-2xl border border-border bg-bg-card overflow-hidden" style="min-height:640px">
+        <div id="vr-loading" class="flex items-center justify-center" style="min-height:640px">
+          <div class="text-center">
+            <div class="mb-4 h-10 w-10 animate-spin rounded-full border-2 border-border border-t-accent mx-auto"></div>
+            <p class="text-sm text-text-muted">載入 VR 訓練引擎中…</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">Level 1 — 基本操作</div>
+          <p class="text-sm text-text-muted">控制大臂、小臂、鏟斗到指定角度，熟悉基本操控。</p>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">Level 2 — 挖掘任務</div>
+          <p class="text-sm text-text-muted">挖出目標區域的土方，精度+速度+穩定度綜合評分。</p>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="mb-2 text-accent font-bold">Level 3 — 安全距離</div>
+          <p class="text-sm text-text-muted">地下管線+電纜障礙物，學會安全距離判斷。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+/* ═══════════════════════════════════════════════
+   CONSTANTS & CONFIG
+   ═══════════════════════════════════════════════ */
+const COMMANDER_URL = "/api/v1/commander/command";
+const AI_CALL_INTERVAL = 3000;
+const DEG = 57.2958; // 180/PI
+const TERRAIN_SIZE = 60;
+const TERRAIN_SEG = 80; // higher resolution for deformation
+
+const TASKS = [
+  { id: "basic", name: "基本操作", desc: "將鏟斗移到目標角度", targetBoom: -0.35, targetStick: 0.6, targetBucket: -0.4, tolerance: 0.15 },
+  { id: "dig", name: "挖掘任務", desc: "挖出目標區域的土方", targetDepth: 2.5, targetArea: { x: 5, z: 0, radius: 3 } },
+  { id: "safety", name: "安全距離", desc: "避開地下管線挖掘", pipePositions: [{ x: 3, z: 2 }, { x: 7, z: -1 }], minSafeDistance: 1.5 },
+];
+
+/* ═══════════════════════════════════════════════
+   HYDRAULIC PHYSICS — realistic arm dynamics
+   ═══════════════════════════════════════════════ */
+// Real excavator specs: Komatsu PC200-8 class
+const HYDRAULIC = {
+  // Max angular velocity (rad/s) — real excavators move ~6-10°/s per joint
+  maxSpeed: { cabin: 0.18, boom: 0.10, stick: 0.14, bucket: 0.22 },
+  // Acceleration (rad/s²) — hydraulic ramp-up
+  accel: { cabin: 0.25, boom: 0.15, stick: 0.20, bucket: 0.35 },
+  // Deceleration when releasing (natural hydraulic damping)
+  damping: 0.92,
+  // Angular limits (radians) — based on real machine geometry
+  limits: {
+    cabin: [-Infinity, Infinity], // continuous rotation
+    boom: [-1.05, 0.35],    // ~-60° to +20° from horizontal
+    stick: [-0.35, 1.40],   // real stick travel
+    bucket: [-0.90, 0.85],  // curl to dump range
+  },
+};
+
+// Current angular velocities (for inertia)
+let vel = { cabin: 0, boom: 0, stick: 0, bucket: 0 };
+
+// Engine RPM simulation
+let engineRPM = 800; // idle RPM
+const ENGINE_IDLE = 800;
+const ENGINE_MAX = 2200;
+const ENGINE_ACCEL = 800; // RPM/s ramp up
+const ENGINE_DECEL = 400; // RPM/s ramp down
+
+/* ═══════════════════════════════════════════════
+   GLOBALS
+   ═══════════════════════════════════════════════ */
+let renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, controls: any;
+let excavator: THREE.Group | null = null;
+let terrain: THREE.Mesh;
+let terrainGeo: THREE.PlaneGeometry;
+let cabinPivot: THREE.Object3D | null = null;
+let boomPivot: THREE.Object3D | null = null;
+let stickPivot: THREE.Object3D | null = null;
+let bucketPivot: THREE.Object3D | null = null;
+
+// Control state
+let cabinAngle = 0;
+let boomAngle = -0.2;
+let stickAngle = 0.3;
+let bucketAngle = -0.2;
+
+let currentTask = 0;
+let score = 0;
+let bestScore = 0;
+let taskStartTime = 0;
+let lastAICall = 0;
+let aiCoachText = "引擎已啟動。按 QWEASDRF 操控挖土機。";
+let aiCoachScore = 0;
+let totalDirtVolume = 0; // cubic meters dug
+
+const keys: Record<string, boolean> = {};
+
+// Gamepad state
+let gamepadIndex: number | null = null;
+
+/* ═══════════════════════════════════════════════
+   TASK PROGRESSION — level unlock system
+   ═══════════════════════════════════════════════ */
+const PASS_SCORE = 80;
+const PASS_HOLD_SECONDS = 3; // must hold score >= 80 for 3 continuous seconds
+let passTimer = 0; // seconds the score has been >= PASS_SCORE
+let taskPassed: boolean[] = [false, false, false];
+let taskUnlocked: boolean[] = [true, false, false]; // Level 1 starts unlocked
+let showingPassModal = false;
+
+// Load progress from localStorage
+function loadProgress(): { unlocked: boolean[]; passed: boolean[]; records: TrainingRecord[] } {
+  try {
+    const raw = localStorage.getItem("zw_vr_progress");
+    if (raw) {
+      const data = JSON.parse(raw);
+      return {
+        unlocked: data.unlocked || [true, false, false],
+        passed: data.passed || [false, false, false],
+        records: data.records || [],
+      };
+    }
+  } catch { /* corrupt data */ }
+  return { unlocked: [true, false, false], passed: [false, false, false], records: [] };
+}
+
+function saveProgress() {
+  const data = { unlocked: taskUnlocked, passed: taskPassed, records: trainingRecords };
+  localStorage.setItem("zw_vr_progress", JSON.stringify(data));
+}
+
+interface TrainingRecord {
+  date: string; // ISO
+  taskId: string;
+  taskName: string;
+  bestScore: number;
+  timeSeconds: number;
+  dirtVolume: number;
+  passed: boolean;
+}
+let trainingRecords: TrainingRecord[] = [];
+
+function initProgress() {
+  const saved = loadProgress();
+  taskUnlocked = saved.unlocked;
+  taskPassed = saved.passed;
+  trainingRecords = saved.records;
+}
+
+function recordSession() {
+  const elapsed = Math.round((Date.now() - taskStartTime) / 1000);
+  if (elapsed < 3) return; // don't record trivial sessions
+  const record: TrainingRecord = {
+    date: new Date().toISOString(),
+    taskId: TASKS[currentTask].id,
+    taskName: TASKS[currentTask].name,
+    bestScore,
+    timeSeconds: elapsed,
+    dirtVolume: +totalDirtVolume.toFixed(2),
+    passed: taskPassed[currentTask],
+  };
+  trainingRecords.push(record);
+  // Keep last 100 records
+  if (trainingRecords.length > 100) trainingRecords = trainingRecords.slice(-100);
+  saveProgress();
+}
+
+function checkTaskCompletion(dt: number) {
+  if (showingPassModal || taskPassed[currentTask]) return;
+
+  if (score >= PASS_SCORE) {
+    passTimer += dt;
+    if (passTimer >= PASS_HOLD_SECONDS) {
+      // PASSED!
+      taskPassed[currentTask] = true;
+      // Unlock next level
+      if (currentTask + 1 < TASKS.length) {
+        taskUnlocked[currentTask + 1] = true;
+      }
+      saveProgress();
+      recordSession();
+      showPassModal();
+    }
+  } else {
+    passTimer = 0;
+  }
+}
+
+// Particle system
+let particles: { mesh: THREE.Mesh; vel: THREE.Vector3; life: number; maxLife: number }[] = [];
+
+// Sound system (Web Audio)
+let audioCtx: AudioContext | null = null;
+let engineOsc: OscillatorNode | null = null;
+let engineGain: GainNode | null = null;
+let hydraulicGain: GainNode | null = null;
+let hydraulicOsc: OscillatorNode | null = null;
+let soundEnabled = false;
+
+/* ═══════════════════════════════════════════════
+   MATERIALS — PBR for realism
+   ═══════════════════════════════════════════════ */
+function mat(c: number, r = 0.7, met = 0.1) { return new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: met }); }
+function metalMat(c: number) { return new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.8 }); }
+function glassMat() { return new THREE.MeshStandardMaterial({ color: 0x88bbff, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.4 }); }
+const tireMat = () => mat(0x222222, 0.9, 0.0);
+const frameMat = () => metalMat(0x444444);
+const hydraulicMat = () => metalMat(0x999999);
+
+/* ═══════════════════════════════════════════════
+   TERRAIN — realistic dirt with deformation
+   ═══════════════════════════════════════════════ */
+// Perlin-like noise for natural terrain variation
+function noise2D(x: number, z: number): number {
+  const s1 = Math.sin(x * 0.15) * Math.cos(z * 0.12) * 0.4;
+  const s2 = Math.sin(x * 0.31 + 1.7) * Math.cos(z * 0.27 + 0.5) * 0.2;
+  const s3 = Math.sin(x * 0.07) * 0.6;
+  return s1 + s2 + s3;
+}
+
+function terrainY(x: number, z: number): number {
+  return noise2D(x, z);
+}
+
+// Store original heights for deformation tracking
+let originalHeights: Float32Array;
+let deformedHeights: Float32Array;
+
+function deformTerrain(worldX: number, worldZ: number, radius: number, depth: number) {
+  const pos = terrainGeo.attributes.position;
+  const halfSize = TERRAIN_SIZE / 2;
+  let changed = false;
+
+  for (let i = 0; i < pos.count; i++) {
+    const vx = pos.getX(i);
+    const vz = pos.getZ(i);
+    const dx = vx - worldX;
+    const dz = vz - worldZ;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < radius) {
+      // Smooth falloff: 1 at center, 0 at edge
+      const falloff = 1 - (dist / radius);
+      const smoothFalloff = falloff * falloff * (3 - 2 * falloff); // smoothstep
+      const deform = depth * smoothFalloff * 0.02; // small per-frame deformation
+      const currentY = pos.getY(i);
+      const minY = originalHeights[i] - 4; // max 4 units dig depth
+      const newY = Math.max(currentY - deform, minY);
+
+      if (newY !== currentY) {
+        pos.setY(i, newY);
+        deformedHeights[i] = newY;
+        changed = true;
+        totalDirtVolume += deform * (TERRAIN_SIZE / TERRAIN_SEG) ** 2; // rough volume
+      }
+    }
+  }
+
+  if (changed) {
+    pos.needsUpdate = true;
+    terrainGeo.computeVertexNormals();
+    // Update vertex colors for exposed dirt
+    const colors = terrainGeo.attributes.color;
+    for (let i = 0; i < pos.count; i++) {
+      const digDepth = originalHeights[i] - deformedHeights[i];
+      if (digDepth > 0.1) {
+        // Transition from grass green to dirt brown based on dig depth
+        const t = Math.min(digDepth / 2, 1);
+        colors.setXYZ(i,
+          0.12 + t * 0.30,  // R: green → brown
+          0.30 - t * 0.12,  // G: green → dark
+          0.10 - t * 0.04,  // B
+        );
+      }
+    }
+    colors.needsUpdate = true;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   PARTICLE SYSTEM — dirt & dust
+   ═══════════════════════════════════════════════ */
+function spawnDirtParticles(pos: THREE.Vector3, count: number, intensity: number) {
+  for (let i = 0; i < count; i++) {
+    const size = 0.05 + Math.random() * 0.12 * intensity;
+    const geo = Math.random() > 0.4
+      ? new THREE.SphereGeometry(size, 4, 4) // dirt chunk
+      : new THREE.BoxGeometry(size, size * 0.6, size); // rock fragment
+    const color = [0x8B7355, 0x6B5B3A, 0x9C8B6E, 0x5C4A2F][Math.floor(Math.random() * 4)];
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color }));
+    mesh.position.copy(pos);
+    mesh.position.x += (Math.random() - 0.5) * 0.8;
+    mesh.position.z += (Math.random() - 0.5) * 0.8;
+    mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    scene.add(mesh);
+
+    particles.push({
+      mesh,
+      vel: new THREE.Vector3(
+        (Math.random() - 0.5) * 3 * intensity,
+        1 + Math.random() * 4 * intensity,
+        (Math.random() - 0.5) * 3 * intensity,
+      ),
+      life: 0,
+      maxLife: 0.5 + Math.random() * 1.0,
+    });
+  }
+}
+
+function spawnDustCloud(pos: THREE.Vector3, scale: number) {
+  const geo = new THREE.PlaneGeometry(scale, scale);
+  const dustMat = new THREE.MeshBasicMaterial({
+    color: 0xaa9966,
+    transparent: true,
+    opacity: 0.3,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geo, dustMat);
+  mesh.position.copy(pos);
+  mesh.position.y += 0.5;
+  mesh.rotation.x = -Math.PI / 2;
+  scene.add(mesh);
+
+  particles.push({
+    mesh,
+    vel: new THREE.Vector3(
+      (Math.random() - 0.5) * 0.5,
+      0.3 + Math.random() * 0.5,
+      (Math.random() - 0.5) * 0.5,
+    ),
+    life: 0,
+    maxLife: 1.5 + Math.random() * 1.0,
+  });
+}
+
+function updateParticles(dt: number) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life += dt;
+
+    if (p.life >= p.maxLife) {
+      scene.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      (p.mesh.material as THREE.Material).dispose();
+      particles.splice(i, 1);
+      continue;
+    }
+
+    // Gravity for dirt chunks
+    p.vel.y -= 9.8 * dt;
+    p.mesh.position.addScaledVector(p.vel, dt);
+
+    // Fade out
+    const t = p.life / p.maxLife;
+    const meshMat = p.mesh.material as THREE.MeshBasicMaterial | THREE.MeshLambertMaterial;
+    if (meshMat.transparent) {
+      meshMat.opacity = 0.3 * (1 - t);
+    }
+
+    // Scale up dust clouds
+    if (meshMat.side === THREE.DoubleSide) {
+      p.mesh.scale.setScalar(1 + t * 2);
+    }
+
+    // Ground collision for dirt chunks
+    if (p.mesh.position.y < 0 && p.vel.y < 0) {
+      p.vel.y *= -0.3; // bounce
+      p.vel.x *= 0.5;
+      p.vel.z *= 0.5;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   SOUND ENGINE — Web Audio API
+   ═══════════════════════════════════════════════ */
+function initSound() {
+  if (audioCtx) return;
+  audioCtx = new AudioContext();
+
+  // Engine sound — low frequency oscillator
+  engineOsc = audioCtx.createOscillator();
+  engineGain = audioCtx.createGain();
+  engineOsc.type = "sawtooth";
+  engineOsc.frequency.value = 40; // idle frequency
+  engineGain.gain.value = 0;
+  engineOsc.connect(engineGain);
+
+  // Low-pass filter for muffled engine sound
+  const lpf = audioCtx.createBiquadFilter();
+  lpf.type = "lowpass";
+  lpf.frequency.value = 200;
+  lpf.Q.value = 2;
+  engineGain.connect(lpf);
+  lpf.connect(audioCtx.destination);
+  engineOsc.start();
+
+  // Hydraulic whine — higher frequency
+  hydraulicOsc = audioCtx.createOscillator();
+  hydraulicGain = audioCtx.createGain();
+  hydraulicOsc.type = "sine";
+  hydraulicOsc.frequency.value = 180;
+  hydraulicGain.gain.value = 0;
+  hydraulicOsc.connect(hydraulicGain);
+
+  const hpf = audioCtx.createBiquadFilter();
+  hpf.type = "bandpass";
+  hpf.frequency.value = 400;
+  hpf.Q.value = 3;
+  hydraulicGain.connect(hpf);
+  hpf.connect(audioCtx.destination);
+  hydraulicOsc.start();
+}
+
+function updateSound(anyInput: boolean) {
+  if (!audioCtx || !engineOsc || !engineGain || !hydraulicOsc || !hydraulicGain) return;
+
+  // Engine: pitch follows RPM
+  const rpmNorm = (engineRPM - ENGINE_IDLE) / (ENGINE_MAX - ENGINE_IDLE);
+  engineOsc.frequency.setTargetAtTime(40 + rpmNorm * 60, audioCtx.currentTime, 0.1);
+  engineGain.gain.setTargetAtTime(0.03 + rpmNorm * 0.04, audioCtx.currentTime, 0.1);
+
+  // Hydraulic: louder when arms moving
+  const hydraulicLoad = Math.abs(vel.boom) + Math.abs(vel.stick) + Math.abs(vel.bucket);
+  hydraulicOsc.frequency.setTargetAtTime(180 + hydraulicLoad * 800, audioCtx.currentTime, 0.05);
+  hydraulicGain.gain.setTargetAtTime(Math.min(hydraulicLoad * 0.3, 0.06), audioCtx.currentTime, 0.1);
+}
+
+/* ═══════════════════════════════════════════════
+   HYDRAULIC CYLINDER VISUAL HELPER
+   ═══════════════════════════════════════════════ */
+function addHydraulicCylinder(parent: THREE.Object3D, from: THREE.Vector3, to: THREE.Vector3) {
+  const len = from.distanceTo(to);
+  const mid = from.clone().add(to).multiplyScalar(0.5);
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, len, 8), hydraulicMat());
+  cyl.position.copy(mid);
+  cyl.lookAt(to);
+  cyl.rotateX(Math.PI / 2);
+  parent.add(cyl);
+}
+
+/* ═══════════════════════════════════════════════
+   EXCAVATOR BUILDER (procedural PBR)
+   ═══════════════════════════════════════════════ */
+function buildExcavator(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "excavator";
+  const bodyColor = mat(0xf4a027);
+
+  // Tracks with detail
+  [-1.15, 1.15].forEach(z => {
+    const trackFrame = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.5, 0.55), frameMat());
+    trackFrame.position.set(0, 0.3, z); trackFrame.castShadow = true; g.add(trackFrame);
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.15, 0.65), tireMat());
+    pad.position.set(0, 0.08, z); g.add(pad);
+    // Track grooves (detail)
+    for (let x = -1.6; x <= 1.6; x += 0.4) {
+      const groove = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.7), mat(0x1a1a1a, 0.95));
+      groove.position.set(x, 0.01, z); g.add(groove);
+    }
+    [1.7, -1.7].forEach(x => {
+      const sprocket = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.4, 12), metalMat(0x555555));
+      sprocket.rotation.x = Math.PI / 2; sprocket.position.set(x, 0.3, z); sprocket.castShadow = true; g.add(sprocket);
+    });
+    [-0.8, 0, 0.8].forEach(x => {
+      const idler = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.3, 10), metalMat(0x444444));
+      idler.rotation.x = Math.PI / 2; idler.position.set(x, 0.12, z); g.add(idler);
+    });
+  });
+
+  // Turntable with grease ring
+  const turntable = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.15, 24), metalMat(0x555555));
+  turntable.position.y = 0.65; g.add(turntable);
+  const greaseRing = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.03, 8, 24), mat(0x222222, 0.9, 0.1));
+  greaseRing.position.y = 0.73; greaseRing.rotation.x = Math.PI / 2; g.add(greaseRing);
+
+  // Cabin pivot
+  const cp = new THREE.Group(); cp.name = "cabinPivot"; cp.position.y = 0.72;
+
+  // Main body with engine compartment detail
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.2, 2.1), bodyColor);
+  body.position.y = 0.6; body.castShadow = true; cp.add(body);
+  // Engine louvers (side detail)
+  for (let z = -0.6; z <= 0.6; z += 0.3) {
+    const louver = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.6, 0.12), mat(0x333333));
+    louver.position.set(-1.31, 0.6, z); cp.add(louver);
+  }
+  const engine = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 2), bodyColor);
+  engine.position.set(-1.2, 0.5, 0); engine.castShadow = true; cp.add(engine);
+
+  // Exhaust stack with cap
+  const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 8), metalMat(0x333333));
+  exhaust.position.set(-1.4, 1.3, 0.5); cp.add(exhaust);
+  const exhaustCap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.03, 8), metalMat(0x222222));
+  exhaustCap.position.set(-1.4, 1.62, 0.5); cp.add(exhaustCap);
+
+  // Cab with ROPS frame
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1, 1.5), bodyColor);
+  cab.position.set(0.4, 1.5, 0); cab.castShadow = true; cp.add(cab);
+  // ROPS pillars
+  [[-0.25, -0.7], [-0.25, 0.7], [1.0, -0.7], [1.0, 0.7]].forEach(([x, z]) => {
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.05, 0.06), metalMat(0x333333));
+    pillar.position.set(x, 1.52, z); cp.add(pillar);
+  });
+
+  // Windows (multi-pane)
+  const window1 = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.7), glassMat());
+  window1.position.set(1.06, 1.6, 0); window1.rotation.y = Math.PI / 2; cp.add(window1);
+  const window2 = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.7), glassMat());
+  window2.position.set(0.4, 1.6, 0.76); cp.add(window2);
+  const windowBack = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.5), glassMat());
+  windowBack.position.set(0.4, 1.6, -0.76); windowBack.rotation.y = Math.PI; cp.add(windowBack);
+  const windowTop = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.8), glassMat());
+  windowTop.position.set(0.6, 2.01, 0); windowTop.rotation.x = -Math.PI / 2; cp.add(windowTop);
+
+  // Counterweight with casting marks
+  const cw = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 2.2), mat(0x333333, 0.8, 0.3));
+  cw.position.set(-1.8, 0.4, 0); cw.castShadow = true; cp.add(cw);
+
+  // Handrails
+  const railing = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.2, 6), metalMat(0xdddd00));
+  railing.position.set(-0.3, 2.1, 0); railing.rotation.x = Math.PI / 2; cp.add(railing);
+
+  // Work light on cab
+  const workLight = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.08, 0.12), mat(0xffffcc, 0.2, 0.5));
+  workLight.position.set(1.05, 2.05, 0); cp.add(workLight);
+
+  // Boom pivot
+  const bp = new THREE.Group(); bp.name = "boomPivot"; bp.position.set(1.3, 1.1, 0);
+  const boom = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3.8, 0.4), bodyColor);
+  boom.position.y = 1.9; boom.castShadow = true; bp.add(boom);
+  // Boom pin
+  const boomPin = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.6, 8), metalMat(0x888888));
+  boomPin.rotation.x = Math.PI / 2; boomPin.position.set(0, 0, 0); bp.add(boomPin);
+  addHydraulicCylinder(bp, new THREE.Vector3(-0.3, 0, 0), new THREE.Vector3(0, 2.5, 0));
+
+  // Stick pivot
+  const sp = new THREE.Group(); sp.name = "stickPivot"; sp.position.set(0, 3.8, 0);
+  const stick = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), bodyColor);
+  stick.position.y = 1.5; stick.castShadow = true; sp.add(stick);
+  const stickPin = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8), metalMat(0x888888));
+  stickPin.rotation.x = Math.PI / 2; sp.add(stickPin);
+  addHydraulicCylinder(sp, new THREE.Vector3(0.2, 0, 0), new THREE.Vector3(0, 2, 0));
+
+  // Bucket pivot
+  const bkp = new THREE.Group(); bkp.name = "bucketPivot"; bkp.position.set(0, 3, 0);
+  const bucketBody = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.7, 1.1), metalMat(0x555555));
+  bucketBody.position.y = 0.35; bucketBody.castShadow = true; bkp.add(bucketBody);
+  // Wear plate
+  const wearPlate = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.05, 1.15), metalMat(0x444444));
+  wearPlate.position.set(0, 0.02, 0); bkp.add(wearPlate);
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 0.15), metalMat(0x666666));
+  lip.position.set(0, 0.05, -0.55); bkp.add(lip);
+  // Bucket teeth (more realistic shape)
+  [-0.45, -0.22, 0, 0.22, 0.45].forEach(x => {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 4), metalMat(0x888888));
+    tooth.position.set(x, -0.05, -0.6); tooth.rotation.x = Math.PI * 0.6; bkp.add(tooth);
+  });
+  // Link rod
+  const linkRod = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6), metalMat(0x666666));
+  linkRod.position.set(0, 0.6, 0.3); linkRod.rotation.z = 0.5; bkp.add(linkRod);
+
+  sp.add(bkp); bp.add(sp); cp.add(bp);
+  g.add(cp);
+
+  cabinPivot = cp; boomPivot = bp; stickPivot = sp; bucketPivot = bkp;
+  return g;
+}
+
+/* ═══════════════════════════════════════════════
+   CONSTRUCTION SITE ENVIRONMENT
+   ═══════════════════════════════════════════════ */
+function buildEnvironment() {
+  // === SKY DOME ===
+  const skyGeo = new THREE.SphereGeometry(200, 16, 16);
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {},
+    vertexShader: `varying vec3 vWorldPos; void main() { vWorldPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `varying vec3 vWorldPos;
+      void main() {
+        float h = normalize(vWorldPos).y;
+        vec3 skyTop = vec3(0.25, 0.45, 0.75);
+        vec3 skyBot = vec3(0.55, 0.65, 0.80);
+        vec3 horizon = vec3(0.75, 0.70, 0.60);
+        vec3 col = h > 0.0 ? mix(horizon, skyTop, h) : mix(horizon, vec3(0.35, 0.30, 0.25), -h);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+  scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+  // === DIRT MOUNDS — excavated piles ===
+  [
+    { x: -8, z: -5, r: 2.5, h: 1.8 },
+    { x: 12, z: 8, r: 3, h: 2.2 },
+    { x: -12, z: 10, r: 2, h: 1.2 },
+  ].forEach(m => {
+    const moundGeo = new THREE.ConeGeometry(m.r, m.h, 12);
+    const mound = new THREE.Mesh(moundGeo, mat(0x7A6B4E, 0.85, 0.05));
+    mound.position.set(m.x, m.h / 2, m.z);
+    mound.castShadow = true; mound.receiveShadow = true;
+    scene.add(mound);
+  });
+
+  // === SAFETY BARRIERS (orange) ===
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const dist = 18 + Math.random() * 4;
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6), mat(0xff6600));
+    post.position.set(Math.cos(angle) * dist, 0.6, Math.sin(angle) * dist);
+    post.castShadow = true;
+    scene.add(post);
+
+    // Reflective stripe
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.15, 6), mat(0xffff00, 0.3, 0.5));
+    stripe.position.set(Math.cos(angle) * dist, 1.0, Math.sin(angle) * dist);
+    scene.add(stripe);
+  }
+
+  // === PARKED EQUIPMENT (distant, using existing GLB) ===
+  const gltfLoader = new GLTFLoader();
+  // Parked dump truck
+  gltfLoader.load("/models/dump-truck.glb", (gltf) => {
+    const m = gltf.scene;
+    m.scale.setScalar(0.8);
+    m.position.set(-15, 0, -12);
+    m.rotation.y = 0.7;
+    m.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; } });
+    scene.add(m);
+  }, undefined, () => {});
+  // Parked bulldozer
+  gltfLoader.load("/models/bulldozer.glb", (gltf) => {
+    const m = gltf.scene;
+    m.scale.setScalar(0.7);
+    m.position.set(18, 0, -8);
+    m.rotation.y = -1.2;
+    m.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; } });
+    scene.add(m);
+  }, undefined, () => {});
+
+  // === TRAFFIC CONES ===
+  [{ x: 8, z: 5 }, { x: 9, z: 4 }, { x: 10, z: 5.5 }, { x: -4, z: 8 }, { x: -3, z: 7 }].forEach(p => {
+    // Cone body
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.5, 8), mat(0xff6600));
+    cone.position.set(p.x, 0.25, p.z); cone.castShadow = true;
+    scene.add(cone);
+    // White stripes
+    const stripe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.10, 0.06, 8), mat(0xffffff));
+    stripe1.position.set(p.x, 0.3, p.z); scene.add(stripe1);
+    // Base
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.03, 0.4), mat(0x333333));
+    base.position.set(p.x, 0.015, p.z); scene.add(base);
+  });
+
+  // === TEMPORARY FENCE (wire mesh) ===
+  for (let x = -22; x <= 22; x += 3) {
+    const fencePost = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2, 6), metalMat(0x888888));
+    fencePost.position.set(x, 1, -25);
+    scene.add(fencePost);
+  }
+  const fenceWire = new THREE.Mesh(new THREE.PlaneGeometry(44, 1.8), new THREE.MeshBasicMaterial({
+    color: 0x888888, transparent: true, opacity: 0.15, side: THREE.DoubleSide, wireframe: true,
+  }));
+  fenceWire.position.set(0, 1, -25); scene.add(fenceWire);
+
+  // === PORTABLE TOILET (blue box) ===
+  const toilet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 1.2), mat(0x2255bb, 0.7, 0.1));
+  toilet.position.set(-18, 1.1, 15); toilet.castShadow = true;
+  scene.add(toilet);
+  const toiletRoof = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.1, 1.3), mat(0x1144aa, 0.6, 0.2));
+  toiletRoof.position.set(-18, 2.25, 15); scene.add(toiletRoof);
+
+  // === WATER PUDDLES ===
+  [{ x: 6, z: -3, s: 2 }, { x: -5, z: 12, s: 1.5 }].forEach(p => {
+    const puddle = new THREE.Mesh(
+      new THREE.CircleGeometry(p.s, 16),
+      new THREE.MeshStandardMaterial({ color: 0x445566, roughness: 0.1, metalness: 0.8, transparent: true, opacity: 0.7 })
+    );
+    puddle.rotation.x = -Math.PI / 2; puddle.position.set(p.x, 0.02, p.z);
+    scene.add(puddle);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   TRAINING OBSTACLES (per-task)
+   ═══════════════════════════════════════════════ */
+function buildTrainingScene() {
+  const task = TASKS[currentTask];
+
+  if (task.id === "basic") {
+    // Ghost excavator arm showing target position
+    const ghost = new THREE.Group();
+    ghost.name = "targetGhost";
+    const ghostMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.2, wireframe: true });
+    const gBoom = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3.8, 0.4), ghostMat);
+    gBoom.position.y = 1.9;
+    const gBoomPivot = new THREE.Group(); gBoomPivot.position.set(1.3, 1.83, 0);
+    gBoomPivot.add(gBoom);
+    gBoomPivot.rotation.z = task.targetBoom ?? -0.35;
+    ghost.add(gBoomPivot);
+    scene.add(ghost);
+  }
+
+  if (task.id === "dig" && task.targetArea) {
+    // Target zone with depth markers
+    const a = task.targetArea;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(a.radius - 0.2, a.radius, 32),
+      new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2; ring.position.set(a.x, 0.05, a.z);
+    ring.name = "targetZone"; scene.add(ring);
+
+    // Depth stake markers
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2;
+      const stake = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 3, 6), mat(0xff0000));
+      stake.position.set(a.x + Math.cos(angle) * a.radius, 1.5, a.z + Math.sin(angle) * a.radius);
+      stake.name = "targetStake"; scene.add(stake);
+      // Depth markings (stripes)
+      for (let d = 0; d < 3; d += 0.5) {
+        const mark = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 6), mat(0xffffff));
+        mark.position.set(a.x + Math.cos(angle) * a.radius, 3 - d, a.z + Math.sin(angle) * a.radius);
+        stake.name = "targetStake"; scene.add(mark);
+      }
+    }
+  }
+
+  if (task.id === "safety" && task.pipePositions) {
+    task.pipePositions.forEach((pos: { x: number; z: number }, i: number) => {
+      // Underground pipe (translucent to show danger)
+      const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 8, 12),
+        new THREE.MeshStandardMaterial({ color: 0xff4444, roughness: 0.5, metalness: 0.3, transparent: true, opacity: 0.6 })
+      );
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(pos.x, -0.5, pos.z);
+      pipe.name = `pipe_${i}`; scene.add(pipe);
+
+      // Warning post with sign
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 8), mat(0xff8800));
+      post.position.set(pos.x, 0.75, pos.z); post.name = `pipe_post_${i}`; scene.add(post);
+
+      // Diamond warning sign
+      const signGeo = new THREE.PlaneGeometry(0.5, 0.5);
+      const signMat = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+      const sign = new THREE.Mesh(signGeo, signMat);
+      sign.position.set(pos.x, 1.6, pos.z);
+      sign.rotation.z = Math.PI / 4;
+      sign.name = `pipe_sign_${i}`; scene.add(sign);
+
+      // Danger radius indicator (ground)
+      const dangerRing = new THREE.Mesh(
+        new THREE.RingGeometry((task.minSafeDistance ?? 1.5) - 0.1, task.minSafeDistance ?? 1.5, 32),
+        new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+      );
+      dangerRing.rotation.x = -Math.PI / 2;
+      dangerRing.position.set(pos.x, 0.03, pos.z);
+      dangerRing.name = `pipe_ring_${i}`; scene.add(dangerRing);
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   BUCKET TIP + COLLISION
+   ═══════════════════════════════════════════════ */
+function getBucketTipWorld(): THREE.Vector3 {
+  if (!bucketPivot) return new THREE.Vector3();
+  const tip = new THREE.Vector3(0, -0.1, -0.6);
+  bucketPivot.localToWorld(tip);
+  return tip;
+}
+
+let lastBucketY = 0;
+let bucketContactFrames = 0;
+
+function checkBucketGroundContact(dt: number) {
+  const tip = getBucketTipWorld();
+  const groundY = terrainY(tip.x, tip.z);
+
+  // Bucket is touching or below ground
+  if (tip.y <= groundY + 0.3) {
+    bucketContactFrames++;
+
+    // Deform terrain
+    const penetration = Math.max(0, groundY + 0.3 - tip.y);
+    deformTerrain(tip.x, tip.z, 1.2, penetration * 2);
+
+    // Spawn particles based on movement speed
+    const bucketSpeed = Math.abs(tip.y - lastBucketY) / dt;
+    if (bucketSpeed > 0.3 && bucketContactFrames % 3 === 0) {
+      spawnDirtParticles(tip, Math.floor(bucketSpeed * 3), bucketSpeed * 0.5);
+      if (bucketContactFrames % 6 === 0) {
+        spawnDustCloud(tip, 1 + bucketSpeed * 0.5);
+      }
+    }
+  } else {
+    bucketContactFrames = 0;
+  }
+
+  lastBucketY = tip.y;
+}
+
+/* ═══════════════════════════════════════════════
+   SCORING
+   ═══════════════════════════════════════════════ */
+function calculateOperationScore(): number {
+  const task = TASKS[currentTask];
+  let s = 0;
+
+  if (task.id === "basic") {
+    const boomErr = Math.abs(boomAngle - (task.targetBoom ?? 0));
+    const stickErr = Math.abs(stickAngle - (task.targetStick ?? 0));
+    const bucketErr = Math.abs(bucketAngle - (task.targetBucket ?? 0));
+    const avgErr = (boomErr + stickErr + bucketErr) / 3;
+    s = Math.max(0, Math.round(100 - avgErr * 200));
+  } else if (task.id === "dig") {
+    const tip = getBucketTipWorld();
+    const area = task.targetArea!;
+    const dist = Math.sqrt((tip.x - area.x) ** 2 + (tip.z - area.z) ** 2);
+    const inZone = dist < area.radius;
+    // Score based on volume dug + precision
+    const volumeScore = Math.min(50, totalDirtVolume * 10);
+    const positionScore = inZone ? 50 * (1 - dist / area.radius) : 0;
+    s = Math.round(volumeScore + positionScore);
+  } else if (task.id === "safety") {
+    const tip = getBucketTipWorld();
+    let minDist = Infinity;
+    (task.pipePositions ?? []).forEach((p: { x: number; z: number }) => {
+      const d = Math.sqrt((tip.x - p.x) ** 2 + (tip.z - p.z) ** 2);
+      if (d < minDist) minDist = d;
+    });
+    if (minDist < (task.minSafeDistance ?? 1.5)) {
+      s = 0;
+    } else {
+      s = Math.min(100, Math.round(minDist * 30));
+    }
+  }
+
+  return Math.max(0, Math.min(100, s));
+}
+
+/* ═══════════════════════════════════════════════
+   AI COACH
+   ═══════════════════════════════════════════════ */
+async function callAICoach() {
+  const tip = getBucketTipWorld();
+  const payload = {
+    site_id: `VR_SESSION_${Date.now()}`,
+    site_name: "VR訓練室",
+    hazard_type: "vr_excavator",
+    live_data: {
+      cabin_angle: +(cabinAngle * DEG).toFixed(1),
+      boom_angle: +(boomAngle * DEG).toFixed(1),
+      stick_angle: +(stickAngle * DEG).toFixed(1),
+      bucket_angle: +(bucketAngle * DEG).toFixed(1),
+      bucket_tip: { x: +tip.x.toFixed(2), y: +tip.y.toFixed(2), z: +tip.z.toFixed(2) },
+      engine_rpm: Math.round(engineRPM),
+      dirt_volume_m3: +totalDirtVolume.toFixed(2),
+      current_score: score,
+      task: TASKS[currentTask].id,
+      elapsed_seconds: Math.round((Date.now() - taskStartTime) / 1000),
+    },
+  };
+
+  try {
+    const resp = await fetch(COMMANDER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const decision = data.decision || {};
+      aiCoachText = decision.decision || decision.feedback || "繼續操作…";
+      aiCoachScore = decision.confidence || score;
+    }
+  } catch {
+    // Local fallback coach
+    const task = TASKS[currentTask];
+    if (task.id === "basic") {
+      const boomDeg = +(boomAngle * DEG).toFixed(0);
+      const targetDeg = +((task.targetBoom ?? 0) * DEG).toFixed(0);
+      if (score < 60) {
+        aiCoachText = `大臂角度 ${boomDeg}°，目標 ${targetDeg}°。${boomAngle > (task.targetBoom ?? 0) ? "再往下壓一點，注意液壓回饋的延遲。" : "往上提一點，慢慢來不要急。"}`;
+      } else if (score < 85) {
+        aiCoachText = `不錯！微調小臂和鏟斗。注意：真機操作時液壓有 0.2 秒延遲，提前放開操縱桿。`;
+      } else {
+        aiCoachText = `非常好！角度控制精準，準備進入下一關：挖掘任務。`;
+      }
+    } else if (task.id === "dig") {
+      if (totalDirtVolume < 0.5) {
+        aiCoachText = `將鏟斗移到目標區域（綠圈）上方，壓下大臂開始挖掘。鏟斗接觸地面時會看到泥土飛濺。`;
+      } else if (score < 60) {
+        aiCoachText = `已挖 ${totalDirtVolume.toFixed(1)} m³。繼續在目標區域內挖掘，注意控制深度。`;
+      } else {
+        aiCoachText = `挖掘量 ${totalDirtVolume.toFixed(1)} m³，精度良好！注意收鏟斗角度提升效率。`;
+      }
+    } else {
+      if (score === 0) {
+        aiCoachText = "危險！鏟斗已進入管線安全距離內！立即將大臂抬起，旋轉遠離管線。";
+      } else if (score < 60) {
+        aiCoachText = "接近管線，小心操作。紅色圓圈為安全禁區，綠色標示管線位置。";
+      } else {
+        aiCoachText = "安全距離良好。在工地中，地下管線位置由 MISS DIG 標記，開挖前務必確認。";
+      }
+    }
+    aiCoachScore = score;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   SCENE INIT
+   ═══════════════════════════════════════════════ */
+async function initScene(canvas: HTMLCanvasElement) {
+  const W = canvas.clientWidth || 800, H = canvas.clientHeight || 580;
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.setClearColor(0x88aacc); // sky color
+  renderer.xr.enabled = true;
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x88aacc, 0.008); // atmospheric haze
+
+  camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 500);
+  camera.position.set(-8, 8, 12);
+
+  controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 5;
+  controls.maxDistance = 40;
+  controls.maxPolarAngle = Math.PI / 2.1;
+  controls.target.set(2, 2, 0);
+
+  // Realistic outdoor lighting
+  scene.add(new THREE.AmbientLight(0x99aabb, 1.5));
+  const sun = new THREE.DirectionalLight(0xfff8e0, 4.5);
+  sun.position.set(25, 40, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.setScalar(2048);
+  sun.shadow.camera.far = 100;
+  sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
+  sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
+  sun.shadow.bias = -0.0001;
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x8899bb, 1.0);
+  fill.position.set(-20, 25, -15); scene.add(fill);
+  scene.add(new THREE.HemisphereLight(0x87ceeb, 0x5a4a2a, 1.2));
+
+  // Realistic terrain with dirt texture colors
+  terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, TERRAIN_SEG, TERRAIN_SEG);
+  terrainGeo.rotateX(-Math.PI / 2);
+  const pos = terrainGeo.attributes.position;
+  originalHeights = new Float32Array(pos.count);
+  deformedHeights = new Float32Array(pos.count);
+  const colors = new Float32Array(pos.count * 3);
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const y = terrainY(x, z);
+    pos.setY(i, y);
+    originalHeights[i] = y;
+    deformedHeights[i] = y;
+
+    // Natural ground color variation
+    const n = noise2D(x * 2, z * 2); // fine noise for color
+    const grass = n > 0.1;
+    if (grass) {
+      colors[i * 3] = 0.15 + Math.random() * 0.05;
+      colors[i * 3 + 1] = 0.30 + Math.random() * 0.08;
+      colors[i * 3 + 2] = 0.08 + Math.random() * 0.04;
+    } else {
+      // Bare dirt patches
+      colors[i * 3] = 0.35 + Math.random() * 0.08;
+      colors[i * 3 + 1] = 0.28 + Math.random() * 0.05;
+      colors[i * 3 + 2] = 0.15 + Math.random() * 0.03;
+    }
+  }
+  terrainGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  terrainGeo.computeVertexNormals();
+  terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.9, metalness: 0.0,
+  }));
+  terrain.receiveShadow = true;
+  scene.add(terrain);
+
+  // Excavator
+  excavator = buildExcavator();
+  excavator.position.set(0, terrainY(0, 0), 0);
+  scene.add(excavator);
+
+  // Environment
+  buildEnvironment();
+
+  // Training obstacles
+  buildTrainingScene();
+
+  taskStartTime = Date.now();
+
+  // Animation loop
+  let lastTime = performance.now();
+
+  function animateFrame(_time: number) {
+    const now = performance.now();
+    const dt = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+
+    processInput(dt);
+    applyAngles();
+    checkBucketGroundContact(dt);
+    updateParticles(dt);
+    updateEngineRPM(dt);
+
+    if (soundEnabled) updateSound(isAnyInputActive());
+
+    score = calculateOperationScore();
+    if (score > bestScore) bestScore = score;
+
+    // Task progression check
+    checkTaskCompletion(dt);
+
+    if (now - lastAICall > AI_CALL_INTERVAL) {
+      lastAICall = now;
+      callAICoach();
+    }
+
+    updateHUD();
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  initProgress(); // Load saved progress before starting
+  renderer.setAnimationLoop(animateFrame);
+
+  new ResizeObserver(() => {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }).observe(canvas);
+}
+
+/* ═══════════════════════════════════════════════
+   INPUT — with hydraulic inertia
+   ═══════════════════════════════════════════════ */
+function isAnyInputActive(): boolean {
+  return !!(keys["q"] || keys["Q"] || keys["e"] || keys["E"] ||
+    keys["w"] || keys["W"] || keys["s"] || keys["S"] ||
+    keys["a"] || keys["A"] || keys["d"] || keys["D"] ||
+    keys["r"] || keys["R"] || keys["f"] || keys["F"]);
+}
+
+function showPassModal() {
+  showingPassModal = true;
+  const elapsed = Math.round((Date.now() - taskStartTime) / 1000);
+  const nextTask = currentTask + 1 < TASKS.length ? TASKS[currentTask + 1] : null;
+
+  const overlay = document.createElement("div");
+  overlay.id = "_passModal";
+  overlay.style.cssText = "position:absolute;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);";
+  overlay.innerHTML = `
+    <div style="background:#111820;border:2px solid #22c55e;border-radius:16px;padding:32px;text-align:center;max-width:360px;animation:fadeIn .3s">
+      <div style="font-size:48px;margin-bottom:8px">&#x2705;</div>
+      <div style="font-size:22px;font-weight:900;color:#22c55e;margin-bottom:4px">關卡通過！</div>
+      <div style="font-size:14px;color:#8899aa;margin-bottom:16px">${TASKS[currentTask].name} — 完成</div>
+      <div style="display:flex;justify-content:center;gap:20px;margin-bottom:20px;">
+        <div><div style="font-size:24px;font-weight:900;color:#f97316">${bestScore}</div><div style="font-size:10px;color:#556">最高分</div></div>
+        <div><div style="font-size:24px;font-weight:900;color:#3b82f6">${elapsed}s</div><div style="font-size:10px;color:#556">用時</div></div>
+        ${currentTask === 1 ? `<div><div style="font-size:24px;font-weight:900;color:#a855f7">${totalDirtVolume.toFixed(1)}</div><div style="font-size:10px;color:#556">m³ 挖方</div></div>` : ""}
+      </div>
+      ${nextTask ? `
+        <button id="_nextLevelBtn" style="padding:12px 32px;background:#22c55e;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;width:100%">
+          進入下一關：${nextTask.name}
+        </button>
+      ` : `
+        <div style="padding:12px;background:#1a1510;border:1px solid #f97316;border-radius:8px;color:#f97316;font-size:14px;font-weight:700;margin-bottom:8px">
+          全部關卡通過！恭喜完成挖土機訓練！
+        </div>
+      `}
+      <button id="_stayBtn" style="padding:8px 24px;background:transparent;color:#8899aa;border:1px solid #334;border-radius:8px;font-size:12px;cursor:pointer;width:100%">
+        繼續練習本關
+      </button>
+    </div>
+  `;
+
+  const center = document.querySelector(".vr-center");
+  if (center) center.appendChild(overlay);
+
+  document.getElementById("_nextLevelBtn")?.addEventListener("click", () => {
+    overlay.remove();
+    showingPassModal = false;
+    if (currentTask + 1 < TASKS.length) switchTask(currentTask + 1);
+  });
+  document.getElementById("_stayBtn")?.addEventListener("click", () => {
+    overlay.remove();
+    showingPassModal = false;
+  });
+}
+
+function switchTask(idx: number) {
+  if (!taskUnlocked[idx]) return;
+  recordSession(); // save previous task session
+  currentTask = idx;
+  score = 0; bestScore = 0; totalDirtVolume = 0; passTimer = 0;
+  taskStartTime = Date.now();
+  // Update task buttons
+  document.querySelectorAll(".vr-task-btn[data-task]").forEach(b => {
+    b.classList.remove("active");
+    const ti = parseInt((b as HTMLElement).dataset.task || "0");
+    if (ti === idx) b.classList.add("active");
+    // Lock/unlock visual
+    if (!taskUnlocked[ti]) {
+      (b as HTMLButtonElement).disabled = true;
+      b.classList.add("vr-locked");
+    } else {
+      (b as HTMLButtonElement).disabled = false;
+      b.classList.remove("vr-locked");
+    }
+    // Passed indicator
+    if (taskPassed[ti] && !b.textContent!.includes("✓")) {
+      b.textContent = "✓ " + b.textContent;
+    }
+  });
+  // Remove old training objects
+  const toRemove = scene.children.filter(c =>
+    c.name.startsWith("target") || c.name.startsWith("pipe")
+  );
+  toRemove.forEach(c => scene.remove(c));
+  buildTrainingScene();
+}
+
+/* ═══════════════════════════════════════════════
+   GAMEPAD — Standard Gamepad API (Quest + Xbox)
+   ═══════════════════════════════════════════════ */
+function pollGamepad() {
+  const gamepads = navigator.getGamepads();
+  let gp: Gamepad | null = null;
+  for (const g of gamepads) {
+    if (g && g.connected) { gp = g; break; }
+  }
+  if (!gp) return;
+
+  const deadzone = 0.15;
+  const axes = gp.axes;
+
+  // Left stick → cabin rotation (X) + boom (Y)
+  if (axes.length >= 2) {
+    const lx = Math.abs(axes[0]) > deadzone ? axes[0] : 0;
+    const ly = Math.abs(axes[1]) > deadzone ? axes[1] : 0;
+    if (lx) { keys["q"] = lx < 0; keys["e"] = lx > 0; } else { keys["q"] = false; keys["e"] = false; }
+    if (ly) { keys["w"] = ly < 0; keys["s"] = ly > 0; } else { keys["w"] = false; keys["s"] = false; }
+  }
+  // Right stick → stick (X) + bucket (Y)
+  if (axes.length >= 4) {
+    const rx = Math.abs(axes[2]) > deadzone ? axes[2] : 0;
+    const ry = Math.abs(axes[3]) > deadzone ? axes[3] : 0;
+    if (rx) { keys["a"] = rx < 0; keys["d"] = rx > 0; } else { keys["a"] = false; keys["d"] = false; }
+    if (ry) { keys["r"] = ry < 0; keys["f"] = ry > 0; } else { keys["r"] = false; keys["f"] = false; }
+  }
+}
+
+function processInput(dt: number) {
+  // Poll gamepad each frame
+  pollGamepad();
+
+  const H = HYDRAULIC;
+
+  // Load factor: bucket in ground → arms move slower (real hydraulic behavior)
+  const loadFactor = bucketContactFrames > 0 ? 0.45 : 1.0; // 55% speed reduction when digging
+
+  // Cabin: Q/E (not affected by load)
+  if (keys["q"] || keys["Q"]) {
+    vel.cabin = Math.min(vel.cabin + H.accel.cabin * dt, H.maxSpeed.cabin);
+  } else if (keys["e"] || keys["E"]) {
+    vel.cabin = Math.max(vel.cabin - H.accel.cabin * dt, -H.maxSpeed.cabin);
+  } else {
+    vel.cabin *= H.damping;
+    if (Math.abs(vel.cabin) < 0.001) vel.cabin = 0;
+  }
+  cabinAngle += vel.cabin;
+
+  // Boom: W/S (load-dependent)
+  const boomMax = H.maxSpeed.boom * loadFactor;
+  if (keys["w"] || keys["W"]) {
+    vel.boom = Math.max(vel.boom - H.accel.boom * loadFactor * dt, -boomMax);
+  } else if (keys["s"] || keys["S"]) {
+    vel.boom = Math.min(vel.boom + H.accel.boom * loadFactor * dt, boomMax);
+  } else {
+    vel.boom *= H.damping;
+    if (Math.abs(vel.boom) < 0.001) vel.boom = 0;
+  }
+  boomAngle = Math.max(H.limits.boom[0], Math.min(H.limits.boom[1], boomAngle + vel.boom));
+  if (boomAngle <= H.limits.boom[0] || boomAngle >= H.limits.boom[1]) vel.boom = 0;
+
+  // Stick: A/D (load-dependent)
+  const stickMax = H.maxSpeed.stick * loadFactor;
+  if (keys["a"] || keys["A"]) {
+    vel.stick = Math.max(vel.stick - H.accel.stick * loadFactor * dt, -stickMax);
+  } else if (keys["d"] || keys["D"]) {
+    vel.stick = Math.min(vel.stick + H.accel.stick * loadFactor * dt, stickMax);
+  } else {
+    vel.stick *= H.damping;
+    if (Math.abs(vel.stick) < 0.001) vel.stick = 0;
+  }
+  stickAngle = Math.max(H.limits.stick[0], Math.min(H.limits.stick[1], stickAngle + vel.stick));
+  if (stickAngle <= H.limits.stick[0] || stickAngle >= H.limits.stick[1]) vel.stick = 0;
+
+  // Bucket: R/F (load-dependent)
+  const bucketMax = H.maxSpeed.bucket * loadFactor;
+  if (keys["r"] || keys["R"]) {
+    vel.bucket = Math.max(vel.bucket - H.accel.bucket * loadFactor * dt, -bucketMax);
+  } else if (keys["f"] || keys["F"]) {
+    vel.bucket = Math.min(vel.bucket + H.accel.bucket * loadFactor * dt, bucketMax);
+  } else {
+    vel.bucket *= H.damping;
+    if (Math.abs(vel.bucket) < 0.001) vel.bucket = 0;
+  }
+  bucketAngle = Math.max(H.limits.bucket[0], Math.min(H.limits.bucket[1], bucketAngle + vel.bucket));
+  if (bucketAngle <= H.limits.bucket[0] || bucketAngle >= H.limits.bucket[1]) vel.bucket = 0;
+}
+
+function applyAngles() {
+  if (cabinPivot) cabinPivot.rotation.y = cabinAngle;
+  if (boomPivot) boomPivot.rotation.z = boomAngle;
+  if (stickPivot) stickPivot.rotation.z = stickAngle;
+  if (bucketPivot) bucketPivot.rotation.z = bucketAngle;
+}
+
+function updateEngineRPM(dt: number) {
+  const targetRPM = isAnyInputActive() ? ENGINE_MAX * 0.7 : ENGINE_IDLE;
+  if (engineRPM < targetRPM) {
+    engineRPM = Math.min(engineRPM + ENGINE_ACCEL * dt, targetRPM);
+  } else {
+    engineRPM = Math.max(engineRPM - ENGINE_DECEL * dt, targetRPM);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   HUD — realistic instrument panel
+   ═══════════════════════════════════════════════ */
+function updateHUD() {
+  const scoreEl = document.getElementById("_vrScore");
+  const coachEl = document.getElementById("_vrCoach");
+  const anglesEl = document.getElementById("_vrAngles");
+  const taskEl = document.getElementById("_vrTaskName");
+  const gaugeEl = document.getElementById("_vrGauges");
+  const bestEl = document.getElementById("_vrBest");
+
+  if (scoreEl) {
+    const color = score >= 80 ? "#22c55e" : score >= 50 ? "#f97316" : "#ef4444";
+    const passPct = taskPassed[currentTask] ? 100 : Math.min((passTimer / PASS_HOLD_SECONDS) * 100, 100);
+    const passBarColor = passPct >= 100 ? "#22c55e" : "#f97316";
+    scoreEl.innerHTML = `
+      <span style="color:${color};font-size:32px;font-weight:900">${score}</span><span style="color:#556;font-size:12px">/100</span>
+      ${score >= PASS_SCORE ? `<div style="margin-top:6px;height:4px;background:#1a2030;border-radius:2px;overflow:hidden"><div style="height:100%;width:${passPct}%;background:${passBarColor};border-radius:2px;transition:width 0.15s"></div></div><div style="font-size:9px;color:#556;margin-top:2px">${taskPassed[currentTask] ? "✓ 已通過" : `通過進度 ${passPct.toFixed(0)}%`}</div>` : ""}
+    `;
+  }
+  if (bestEl) bestEl.textContent = `最高分: ${bestScore}`;
+  if (coachEl) coachEl.textContent = aiCoachText;
+  if (anglesEl) {
+    anglesEl.innerHTML = `
+      <div>旋轉 <b>${(cabinAngle * DEG).toFixed(1)}°</b></div>
+      <div>大臂 <b>${(boomAngle * DEG).toFixed(1)}°</b></div>
+      <div>小臂 <b>${(stickAngle * DEG).toFixed(1)}°</b></div>
+      <div>鏟斗 <b>${(bucketAngle * DEG).toFixed(1)}°</b></div>
+    `;
+  }
+  if (taskEl) taskEl.textContent = TASKS[currentTask].name;
+  if (gaugeEl) {
+    const tip = getBucketTipWorld();
+    const rpmPct = ((engineRPM - ENGINE_IDLE) / (ENGINE_MAX - ENGINE_IDLE) * 100).toFixed(0);
+    const hydPressure = (Math.abs(vel.boom) + Math.abs(vel.stick) + Math.abs(vel.bucket)) * 1200;
+    gaugeEl.innerHTML = `
+      <div class="vr-gauge"><span class="vr-gauge-label">RPM</span><div class="vr-gauge-bar"><div class="vr-gauge-fill" style="width:${rpmPct}%;background:${engineRPM > 1800 ? '#ef4444' : '#f97316'}"></div></div><span class="vr-gauge-val">${Math.round(engineRPM)}</span></div>
+      <div class="vr-gauge"><span class="vr-gauge-label">液壓</span><div class="vr-gauge-bar"><div class="vr-gauge-fill" style="width:${Math.min(hydPressure / 350 * 100, 100).toFixed(0)}%;background:#3b82f6"></div></div><span class="vr-gauge-val">${Math.round(hydPressure)} bar</span></div>
+      <div class="vr-gauge"><span class="vr-gauge-label">深度</span><div class="vr-gauge-bar"><div class="vr-gauge-fill" style="width:${Math.min(Math.abs(tip.y) / 4 * 100, 100).toFixed(0)}%;background:#22c55e"></div></div><span class="vr-gauge-val">${(-tip.y).toFixed(1)} m</span></div>
+      <div class="vr-gauge"><span class="vr-gauge-label">挖方</span><div class="vr-gauge-bar"><div class="vr-gauge-fill" style="width:${Math.min(totalDirtVolume / 5 * 100, 100).toFixed(0)}%;background:#a855f7"></div></div><span class="vr-gauge-val">${totalDirtVolume.toFixed(2)} m³</span></div>
+    `;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   UI
+   ═══════════════════════════════════════════════ */
+function buildUI(container: HTMLElement) {
+  container.innerHTML = `
+  <style>
+    .vr-grid { display:grid; grid-template-columns:220px 1fr 280px; height:640px; font-family:system-ui,sans-serif; }
+    .vr-left { background:#111820; overflow-y:auto; border-right:1px solid #243040; padding:12px; display:flex; flex-direction:column; gap:10px; }
+    .vr-center { position:relative; overflow:hidden; }
+    .vr-right { background:#111820; overflow-y:auto; border-left:1px solid #243040; padding:12px; display:flex; flex-direction:column; gap:10px; }
+    .vr-canvas { width:100%; height:100%; display:block; }
+    .vr-label { font-size:10px; color:#556; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
+    .vr-card { background:#0d1520; border:1px solid #243040; border-radius:8px; padding:10px; }
+    .vr-score-box { text-align:center; padding:16px; }
+    .vr-coach { background:#0d1520; border:1px solid #1a3050; border-radius:8px; padding:12px; font-size:13px; color:#88ccff; line-height:1.5; min-height:60px; }
+    .vr-coach::before { content:"AI 教練"; display:block; font-size:10px; color:#f97316; font-weight:700; margin-bottom:4px; }
+    .vr-key { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; background:#1a2030; border:1px solid #334; border-radius:4px; font-size:11px; color:#aab; font-weight:700; }
+    .vr-ctrl-row { display:flex; align-items:center; gap:8px; font-size:12px; color:#8899aa; }
+    .vr-angles { font-size:12px; color:#8899aa; }
+    .vr-angles b { color:#f97316; }
+    .vr-task-btn { padding:8px 16px; background:#243040; border:1px solid #334; border-radius:6px; font-size:12px; color:#aab; cursor:pointer; transition:all .2s; }
+    .vr-task-btn:hover { border-color:#f97316; color:#f97316; }
+    .vr-task-btn.active { background:#1a1510; border-color:#f97316; color:#f97316; }
+    .vr-task-btn.vr-locked { opacity:0.4; cursor:not-allowed; }
+    .vr-task-btn.vr-locked:hover { border-color:#334; color:#aab; }
+    .vr-task-btn.vr-passed { border-color:#22c55e; color:#22c55e; }
+    .vr-progress-ring { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%; border:2px solid #334; font-size:9px; margin-right:4px; }
+    .vr-progress-ring.done { border-color:#22c55e; color:#22c55e; }
+    .vr-stats { font-size:10px; color:#556; }
+    .vr-stats-row { display:flex; justify-content:space-between; padding:2px 0; }
+    .vr-stats-val { color:#8899aa; }
+    .vr-xr-btn { padding:10px; background:linear-gradient(135deg,#f97316,#ef4444); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .vr-xr-btn:hover { transform:scale(1.02); }
+    .vr-xr-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+    .vr-tip { position:absolute; bottom:8px; left:8px; font-size:10px; color:#ccd; background:rgba(0,0,0,0.7); padding:4px 10px; border-radius:4px; pointer-events:none; }
+    .vr-best { font-size:11px; color:#556; text-align:center; }
+    .vr-gauge { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .vr-gauge-label { font-size:10px; color:#556; width:28px; flex-shrink:0; }
+    .vr-gauge-bar { flex:1; height:8px; background:#0d1520; border-radius:4px; overflow:hidden; border:1px solid #243040; }
+    .vr-gauge-fill { height:100%; border-radius:3px; transition:width 0.15s; }
+    .vr-gauge-val { font-size:10px; color:#8899aa; width:55px; text-align:right; flex-shrink:0; }
+    @media(max-width:900px) {
+      .vr-grid { grid-template-columns:1fr; height:auto; }
+      .vr-left,.vr-right { display:none; }
+    }
+  </style>
+  <div class="vr-grid">
+    <div class="vr-left">
+      <div class="vr-label">操作控制</div>
+      <div class="vr-card">
+        <div class="vr-ctrl-row"><span class="vr-key">Q</span><span class="vr-key">E</span> 旋轉 (左/右)</div>
+        <div class="vr-ctrl-row" style="margin-top:6px"><span class="vr-key">W</span><span class="vr-key">S</span> 大臂 (上/下)</div>
+        <div class="vr-ctrl-row" style="margin-top:6px"><span class="vr-key">A</span><span class="vr-key">D</span> 小臂 (收/伸)</div>
+        <div class="vr-ctrl-row" style="margin-top:6px"><span class="vr-key">R</span><span class="vr-key">F</span> 鏟斗 (收/開)</div>
+      </div>
+
+      <div class="vr-label" style="margin-top:8px">目前角度</div>
+      <div class="vr-card vr-angles" id="_vrAngles">
+        <div>旋轉 <b>0.0°</b></div><div>大臂 <b>-11.5°</b></div>
+        <div>小臂 <b>17.2°</b></div><div>鏟斗 <b>-11.5°</b></div>
+      </div>
+
+      <div class="vr-label" style="margin-top:8px">訓練關卡</div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        ${TASKS.map((t, i) => {
+          const locked = !taskUnlocked[i];
+          const passed = taskPassed[i];
+          const cls = `vr-task-btn${i === 0 ? " active" : ""}${locked ? " vr-locked" : ""}${passed ? " vr-passed" : ""}`;
+          const prefix = passed ? "✓ " : locked ? "🔒 " : "";
+          return `<button class="${cls}" data-task="${i}" ${locked ? "disabled" : ""}>${prefix}${t.name}</button>`;
+        }).join("")}
+      </div>
+
+      <div class="vr-label" style="margin-top:8px">訓練紀錄</div>
+      <div class="vr-card vr-stats" id="_vrStats">載入中…</div>
+
+      <button class="vr-xr-btn" id="_vrXRBtn" disabled>
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5 6h-17A1.5 1.5 0 002 7.5v9A1.5 1.5 0 003.5 18h4.22a1.5 1.5 0 001.34-.83L10.5 14h3l1.44 3.17a1.5 1.5 0 001.34.83h4.22a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0020.5 6zM8 13a2 2 0 110-4 2 2 0 010 4zm8 0a2 2 0 110-4 2 2 0 010 4z"/></svg>
+        進入 VR 模式
+      </button>
+    </div>
+    <div class="vr-center">
+      <canvas class="vr-canvas" id="_vrCanvas"></canvas>
+      <div class="vr-tip">QWEASDRF 控制挖土機 · 滑鼠旋轉視角 · 滾輪縮放 · 液壓有慣性延遲</div>
+    </div>
+    <div class="vr-right">
+      <div class="vr-label">即時評分</div>
+      <div class="vr-score-box vr-card" id="_vrScore">
+        <span style="color:#556;font-size:32px;font-weight:900">0</span><span style="color:#556;font-size:12px">/100</span>
+      </div>
+      <div class="vr-best" id="_vrBest">最高分: 0</div>
+
+      <div class="vr-label">目前任務: <span id="_vrTaskName">基本操作</span></div>
+      <div class="vr-coach" id="_vrCoach">引擎已啟動。按 QWEASDRF 操控挖土機。</div>
+
+      <div class="vr-label" style="margin-top:6px">儀表板</div>
+      <div class="vr-card" id="_vrGauges" style="font-size:11px;"></div>
+
+      <div style="display:flex; gap:4px; margin-top:auto;">
+        <button class="vr-task-btn" id="_vrSound" style="flex:1;text-align:center;">
+          引擎音效 OFF
+        </button>
+        <button class="vr-task-btn" id="_vrSpeech" style="flex:1;text-align:center;">
+          語音教練 OFF
+        </button>
+      </div>
+    </div>
+  </div>`;
+
+  // Wire task buttons
+  document.querySelectorAll(".vr-task-btn[data-task]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt((btn as HTMLElement).dataset.task || "0");
+      if (!taskUnlocked[idx]) return;
+      switchTask(idx);
+    });
+  });
+
+  // Render training stats
+  renderStats();
+
+  // WebXR button
+  const xrBtn = document.getElementById("_vrXRBtn") as HTMLButtonElement;
+  if (navigator.xr) {
+    navigator.xr.isSessionSupported("immersive-vr").then(supported => {
+      xrBtn.disabled = !supported;
+      if (!supported) xrBtn.textContent = "VR 不支援此裝置";
+    });
+    xrBtn.addEventListener("click", async () => {
+      try {
+        const session = await navigator.xr!.requestSession("immersive-vr", {
+          optionalFeatures: ["local-floor", "bounded-floor"],
+        });
+        renderer.xr.setSession(session);
+        xrBtn.textContent = "VR 模式運行中";
+        xrBtn.disabled = true;
+        session.addEventListener("end", () => {
+          xrBtn.textContent = "進入 VR 模式";
+          xrBtn.disabled = false;
+        });
+      } catch (err) {
+        console.error("WebXR session failed:", err);
+      }
+    });
+  }
+
+  // Sound toggle
+  document.getElementById("_vrSound")?.addEventListener("click", () => {
+    soundEnabled = !soundEnabled;
+    const btn = document.getElementById("_vrSound")!;
+    if (soundEnabled) {
+      initSound();
+      btn.textContent = "引擎音效 ON";
+      btn.classList.add("active");
+    } else {
+      btn.textContent = "引擎音效 OFF";
+      btn.classList.remove("active");
+      if (engineGain) engineGain.gain.setTargetAtTime(0, audioCtx!.currentTime, 0.1);
+      if (hydraulicGain) hydraulicGain.gain.setTargetAtTime(0, audioCtx!.currentTime, 0.1);
+    }
+  });
+
+  // Speech toggle
+  let speechEnabled = false;
+  let lastSpokenText = "";
+  document.getElementById("_vrSpeech")?.addEventListener("click", () => {
+    speechEnabled = !speechEnabled;
+    const btn = document.getElementById("_vrSpeech")!;
+    btn.textContent = speechEnabled ? "語音教練 ON" : "語音教練 OFF";
+    if (speechEnabled) btn.classList.add("active"); else btn.classList.remove("active");
+    if (speechEnabled) {
+      setInterval(() => {
+        if (speechEnabled && aiCoachText !== lastSpokenText) {
+          lastSpokenText = aiCoachText;
+          const utterance = new SpeechSynthesisUtterance(aiCoachText);
+          utterance.lang = "zh-TW";
+          utterance.rate = 1.1;
+          speechSynthesis.speak(utterance);
+        }
+      }, 5000);
+    }
+  });
+
+  // Init 3D
+  const canvas = document.getElementById("_vrCanvas") as HTMLCanvasElement;
+  if (canvas) initScene(canvas);
+}
+
+/* ═══════════════════════════════════════════════
+   STATS RENDERER
+   ═══════════════════════════════════════════════ */
+function renderStats() {
+  const el = document.getElementById("_vrStats");
+  if (!el) return;
+
+  const totalSessions = trainingRecords.length;
+  const totalTime = trainingRecords.reduce((s, r) => s + r.timeSeconds, 0);
+  const passedCount = taskPassed.filter(Boolean).length;
+  const avgScore = totalSessions > 0
+    ? Math.round(trainingRecords.reduce((s, r) => s + r.bestScore, 0) / totalSessions)
+    : 0;
+
+  el.innerHTML = `
+    <div class="vr-stats-row"><span>完成關卡</span><span class="vr-stats-val">${passedCount} / ${TASKS.length}</span></div>
+    <div class="vr-stats-row"><span>訓練次數</span><span class="vr-stats-val">${totalSessions} 次</span></div>
+    <div class="vr-stats-row"><span>總訓練時間</span><span class="vr-stats-val">${Math.floor(totalTime / 60)} 分 ${totalTime % 60} 秒</span></div>
+    <div class="vr-stats-row"><span>平均最高分</span><span class="vr-stats-val">${avgScore}</span></div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════
+   KEYBOARD + GAMEPAD EVENTS
+   ═══════════════════════════════════════════════ */
+document.addEventListener("keydown", e => { keys[e.key] = true; });
+document.addEventListener("keyup", e => { keys[e.key] = false; });
+window.addEventListener("gamepadconnected", (e) => {
+  gamepadIndex = (e as GamepadEvent).gamepad.index;
+  aiCoachText = `搖桿已連接：${(e as GamepadEvent).gamepad.id.slice(0, 30)}。左搖桿=旋轉+大臂，右搖桿=小臂+鏟斗。`;
+});
+window.addEventListener("gamepaddisconnected", () => { gamepadIndex = null; });
+
+/* ═══════════════════════════════════════════════
+   ENTRY
+   ═══════════════════════════════════════════════ */
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.getElementById("vr-container");
+  if (container) buildUI(container);
+});
+</script>

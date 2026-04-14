@@ -1,0 +1,77 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductDetail from "../../components/ProductDetail.astro";
+import DemoTerminal from "../../components/DemoTerminal.astro";
+import { products } from "../../content/products";
+
+const product = products.find((p) => p.id === "plan-ai")!;
+
+const requestBody = `{
+  "project_desc": "台北市中山區8層RC住宅，1200坪，地下2層停車場",
+  "bid_documents": [],
+  "mode": "full"
+}`;
+
+const responseJson = `{
+  "schedule": {
+    "total_days": 480,
+    "critical_path": ["地下開挖→基礎→RC結構→水電→裝修"],
+    "work_items": 14,
+    "milestones": [
+      { "name": "地下結構完成", "day": 120 },
+      { "name": "RC主體封頂", "day": 300 },
+      { "name": "室內裝修完成", "day": 440 }
+    ]
+  },
+  "cost_estimate": {
+    "total_ntd": 186500000,
+    "unit_cost_per_ping": 155417,
+    "breakdown": {
+      "直接工程費": 158525000,
+      "間接費用": 18650000,
+      "預備費": 9325000
+    }
+  },
+  "monte_carlo": {
+    "simulations": 1000,
+    "P50": 186500000,
+    "P75": 197800000,
+    "P90": 214200000,
+    "schedule_P50_days": 480,
+    "schedule_P90_days": 521
+  },
+  "top_risks": [
+    { "risk": "地下水位異常", "level": "high", "cost_impact": "+8%", "schedule_impact": "+15d" },
+    { "risk": "鋼筋價格波動", "level": "medium", "cost_impact": "+3%", "schedule_impact": "0d" },
+    { "risk": "颱風季節影響", "level": "low", "cost_impact": "+1%", "schedule_impact": "+7d" }
+  ],
+  "value_engineering": [
+    { "item": "預鑄樓梯", "saving_ntd": 1200000, "schedule_saving_days": 12 },
+    { "item": "系統模板外牆", "saving_ntd": 2800000, "schedule_saving_days": 0 }
+  ],
+  "recommended_bid": {
+    "low": 191000000,
+    "base": 201000000,
+    "high": 218000000
+  }
+}`;
+---
+
+<BaseLayout title={product.name} description={product.description}>
+  <ProductDetail product={product}>
+    <div slot="demo" class="mb-12">
+      <h2 class="mb-2 text-2xl font-bold">互動 Demo — 投標模擬</h2>
+      <p class="mb-5 text-sm text-text-muted">
+        輸入專案描述，AI 整合排程引擎 + 5D 成本 + Monte Carlo 模擬，產出完整的報價建議。
+      </p>
+      <DemoTerminal
+        productId="plan-ai"
+        method="POST"
+        endpoint="/api/v1/bid/simulate"
+        requestBody={requestBody}
+        responseJson={responseJson}
+        label="執行投標模擬"
+      />
+    </div>
+  </ProductDetail>
+</BaseLayout>

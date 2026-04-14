@@ -1,0 +1,409 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Hero from "../components/Hero.astro";
+import ProductCard from "../components/ProductCard.astro";
+import ProductFlow from "../components/ProductFlow.astro";
+import DemoTerminal from "../components/DemoTerminal.astro";
+import LineNotificationDemo from "../components/LineNotificationDemo.astro";
+import ContractToScheduleDemo from "../components/ContractToScheduleDemo.astro";
+import RegSearchDemo from "../components/RegSearchDemo.astro";
+import StructuralAnalysisDemo from "../components/StructuralAnalysisDemo.astro";
+import CommanderDemo from "../components/CommanderDemo.astro";
+import DisasterAlertDemo from "../components/DisasterAlertDemo.astro";
+import { products } from "../content/products";
+
+const siteAiFlow = [
+  { icon: "M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z M15 13a3 3 0 11-6 0 3 3 0 016 0z", label: "工地拍照", sublabel: "LINE 傳送", color: "from-green-500 to-emerald-400" },
+  { icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", label: "AI 視覺分析", sublabel: "Qwen3 推論", color: "from-blue-500 to-cyan-400" },
+  { icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", label: "結構化記錄", sublabel: "自動歸檔", color: "from-purple-500 to-violet-400" },
+  { icon: "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", label: "自動日報", sublabel: "17:30 推播", color: "from-orange-500 to-amber-400" },
+];
+
+const bidDemoRequest = `{
+  "project_desc": "台北市中山區8層RC住宅，1200坪",
+  "mode": "full"
+}`;
+
+const bidDemoResponse = `{
+  "schedule": {
+    "total_days": 480,
+    "critical_path": ["地下開挖", "基礎工程", "RC結構", "裝修"],
+    "milestone_count": 14
+  },
+  "cost": {
+    "total": 186500000,
+    "breakdown": {
+      "materials": "45%",
+      "labor": "28%",
+      "equipment": "12%",
+      "subcontract": "10%",
+      "overhead": "5%"
+    }
+  },
+  "monte_carlo": {
+    "P50": 186500000,
+    "P75": 197800000,
+    "P90": 214200000,
+    "confidence": "high"
+  },
+  "risks": [
+    { "item": "地下水位", "level": "high", "impact": "+8%" },
+    { "item": "鋼筋價格波動", "level": "medium", "impact": "+3%" }
+  ],
+  "value_engineering": [
+    "預鑄樓梯可節省工期 12 天",
+    "外牆改用系統模板降低人工成本 NT$280萬"
+  ]
+}`;
+---
+
+<BaseLayout title="首頁">
+  <Hero />
+
+  <!-- ═══ THEME 1: 營建科技化 ═══ -->
+  <section class="px-4 pb-10 pt-8">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-6 flex items-center gap-4">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-accent/30 to-transparent"></div>
+        <div data-aos="zoom-in" class="shrink-0 rounded-full border border-accent/30 bg-accent/5 px-5 py-2 text-center">
+          <div class="text-xs font-bold uppercase tracking-widest text-accent">Theme 1</div>
+          <div class="text-lg font-black text-text-heading">營建科技化</div>
+        </div>
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-accent/30 to-transparent"></div>
+      </div>
+      <p class="mb-8 text-center text-text-muted">AI 驅動的施工管理、監理決策、VR 訓練 — 讓工地從人力密集走向智慧自動</p>
+
+      <!-- Animated Commander Demo -->
+      <div class="mb-6 text-center">
+        <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-400">
+          AI 監理指揮官 — 即時決策模擬
+        </div>
+      </div>
+      <div data-aos="fade-up"><CommanderDemo /></div>
+      <div class="mt-4 mb-8 text-center">
+        <a href="/products/commander" class="text-sm text-accent hover:underline">了解 AI Commander 完整功能 →</a>
+      </div>
+
+      <!-- Construction products -->
+      <div class="grid gap-6 md:grid-cols-2" data-aos="fade-up">
+        {products.filter(p => !["disaster-ai"].includes(p.id)).map((p) => (
+          <ProductCard
+            id={p.id}
+            name={p.name}
+            tagline={p.tagline}
+            description={p.description}
+            icon={p.icon}
+            color={p.color}
+            features={p.features}
+          />
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ THEME 2: 科技防災 ═══ -->
+  <section class="border-t border-border bg-gradient-to-b from-red-950/50 to-transparent px-4 py-16">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-6 flex items-center gap-4">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
+        <div data-aos="zoom-in" class="shrink-0 rounded-full border border-red-500/30 bg-red-500/5 px-5 py-2 text-center">
+          <div class="text-xs font-bold uppercase tracking-widest text-red-400">Theme 2</div>
+          <div class="text-lg font-black text-text-heading">科技防災</div>
+        </div>
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
+      </div>
+      <p class="mb-8 text-center text-text-muted">AI 即時預警、自動應變 — 颱風、地震、水災來臨前，你的工地已經準備好了</p>
+
+      <!-- Animated Disaster Alert Demo -->
+      <div data-aos="fade-up"><DisasterAlertDemo /></div>
+      <div class="mt-6 text-center">
+        <a href="/products/disaster-ai" class="inline-flex items-center gap-2 rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600">
+          了解防災 AI 完整功能 →
+        </a>
+      </div>
+
+      <!-- Disaster flow -->
+      <div class="mt-6 sm:mt-8 rounded-xl border border-border bg-bg-card/50 p-4 sm:p-6" data-aos="fade-up">
+        <div class="text-center text-xs sm:text-sm font-bold text-text-heading mb-3">防災決策流程</div>
+        <div class="grid grid-cols-5 gap-1 text-center sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-2 text-[10px] sm:text-xs">
+          <span class="rounded-lg bg-yellow-500/10 px-2 py-1 sm:px-3 sm:py-1.5 text-yellow-400 font-semibold">氣象署</span>
+          <span class="text-text-muted self-center">→</span>
+          <span class="rounded-lg bg-blue-500/10 px-2 py-1 sm:px-3 sm:py-1.5 text-blue-400 font-semibold">RAG</span>
+          <span class="text-text-muted self-center">→</span>
+          <span class="rounded-lg bg-purple-500/10 px-2 py-1 sm:px-3 sm:py-1.5 text-purple-400 font-semibold">AI</span>
+        </div>
+        <div class="mt-1 grid grid-cols-3 gap-1 text-center sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-2 text-[10px] sm:text-xs">
+          <span class="rounded-lg bg-red-500/10 px-2 py-1 sm:px-3 sm:py-1.5 text-red-400 font-semibold">LINE 推播</span>
+          <span class="text-text-muted self-center">→</span>
+          <span class="rounded-lg bg-green-500/10 px-2 py-1 sm:px-3 sm:py-1.5 text-green-400 font-semibold">n8n 應變</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live Flow Demo: SiteAI -->
+  <section class="border-t border-border bg-bg-card/20 px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-6 sm:mb-10 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
+          工地智眼 SiteAI
+        </div>
+        <h2 class="text-2xl font-bold sm:text-3xl">工地現場到日報，全自動</h2>
+        <p class="mt-2 text-sm sm:text-base text-text-muted">工地人員用 LINE 傳一張照片，AI 完成後面所有事</p>
+      </div>
+
+      <ProductFlow steps={siteAiFlow} flowId="site-ai-flow" />
+    </div>
+  </section>
+
+  <!-- Live API Demo: PlanAI Bid Simulator -->
+  <section class="px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-8 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-400">
+          排程成本 PlanAI — 投標模擬
+        </div>
+        <h2 class="text-2xl font-bold sm:text-3xl">輸入專案描述，10 分鐘產出完整報價書</h2>
+        <p class="mt-2 text-sm sm:text-base text-text-muted">整合 CPM 排程 + 5D 成本估算 + Monte Carlo 風險模擬</p>
+      </div>
+
+      <DemoTerminal
+        productId="bid-home"
+        method="POST"
+        endpoint="/api/v1/bid/simulate"
+        requestBody={bidDemoRequest}
+        responseJson={bidDemoResponse}
+        label="執行投標模擬"
+      />
+
+      <div class="mt-4 text-center">
+        <a href="/products/plan-ai" class="text-sm text-accent hover:underline">
+          查看 PlanAI 完整功能 →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demo: LINE AI Notification -->
+  <section class="border-t border-border px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-6 sm:mb-10 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
+          工地智眼 SiteAI — LINE 機器人
+        </div>
+        <h2 class="text-2xl font-bold sm:text-3xl">一張照片，AI 完成後面所有事</h2>
+        <p class="mt-2 text-sm sm:text-base text-text-muted">工地主任拍照 → AI 辨識缺失 → 自動建立待辦 → 定時推播日報給業主</p>
+      </div>
+      <div data-aos="fade-up"><LineNotificationDemo /></div>
+    </div>
+  </section>
+
+  <!-- Demo: Contract → Schedule -->
+  <section class="border-t border-border bg-bg-card/20 px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-6 sm:mb-10 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
+          排程成本 PlanAI — 契約解析
+        </div>
+        <h2 class="text-2xl font-bold sm:text-3xl">AI 讀契約，自動生成排程與提醒</h2>
+        <p class="mt-2 text-sm sm:text-base text-text-muted">上傳工程契約書，AI 提取里程碑、工期、逾期罰款條款，自動建立 CPM 排程與 LINE 提醒</p>
+      </div>
+      <div data-aos="fade-up"><ContractToScheduleDemo /></div>
+    </div>
+  </section>
+
+  <!-- Demo: AI Regulation Search -->
+  <section class="border-t border-border px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-6 sm:mb-10 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-400">
+          文件智能 DocAI — 法規查詢
+        </div>
+        <h2 class="text-2xl font-bold sm:text-3xl">問 AI，秒找相關法規與標準</h2>
+        <p class="mt-2 text-sm sm:text-base text-text-muted">輸入工程問題，AI 同時搜尋職安法規、CNS 標準、建築技術規則，給出計算建議</p>
+      </div>
+      <div data-aos="fade-up"><RegSearchDemo /></div>
+    </div>
+  </section>
+
+  <!-- Demo: Structural Analysis -->
+  <section class="border-t border-border bg-bg-card/20 px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <div class="mb-6 sm:mb-10 text-center">
+        <div class="mb-3 inline-flex items-center gap-2 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-400">
+          結構分析引擎 — 點雲 × AI 計算
+        </div>
+        <h2 class="text-2xl font-bold sm:text-3xl">點雲匯入，AI 幫你跑結構計算</h2>
+        <p class="mt-2 text-sm sm:text-base text-text-muted">上傳現場掃描資料，用自然語言與 AI 對話，即時取得擋土支撐、模板、施工架、RC、鋼構的安全驗算與改善建議</p>
+      </div>
+      <div data-aos="fade-up"><StructuralAnalysisDemo /></div>
+      <div class="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-5 sm:gap-4 text-center">
+        {[
+          { label: "擋土支撐", icon: "🏗️", desc: "土壓力 + 安全係數" },
+          { label: "模板支撐", icon: "🪵", desc: "有效長度比驗算" },
+          { label: "施工架", icon: "🔩", desc: "連牆件 + 穩定性" },
+          { label: "RC 結構", icon: "🧱", desc: "撓曲 + 剪力設計" },
+          { label: "鋼構", icon: "⚙️", desc: "接合 + 銲道驗算" },
+        ].map(item => (
+          <div class="rounded-lg border border-border bg-bg-card/40 p-3">
+            <div class="text-2xl mb-1">{item.icon}</div>
+            <div class="text-xs font-bold text-text-heading">{item.label}</div>
+            <div class="text-xs text-text-muted mt-0.5">{item.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ THEME 3: AI 辦公 + 3D 模擬 ═══ -->
+  <section class="border-t border-border bg-gradient-to-b from-orange-950/30 to-transparent px-4 py-16">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-6 flex items-center gap-4">
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500/30 to-transparent"></div>
+        <div data-aos="zoom-in" class="shrink-0 rounded-full border border-orange-500/30 bg-orange-500/5 px-5 py-2 text-center">
+          <div class="text-xs font-bold uppercase tracking-widest text-orange-400">Theme 3</div>
+          <div class="text-lg font-black text-text-heading">AI 辦公 × 3D 模擬</div>
+        </div>
+        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500/30 to-transparent"></div>
+      </div>
+      <p class="mb-8 text-center text-text-muted">7 大辦公工具 + 3D 點雲 + 施工模擬 — 營建業的完整數位工作站</p>
+
+      <!-- AI Office 7 tools showcase -->
+      <div class="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7" data-aos="fade-up">
+        {[
+          { icon: "📝", name: "文書處理", desc: "8 種範本" },
+          { icon: "📊", name: "試算表", desc: "AI 公式" },
+          { icon: "📽", name: "簡報", desc: "Markdown" },
+          { icon: "🖊", name: "流程圖", desc: "5 種範本" },
+          { icon: "🗄", name: "資料庫", desc: "4 張表" },
+          { icon: "📅", name: "甘特圖", desc: "CPM 要徑" },
+          { icon: "📐", name: "圖紙辨識", desc: "圖→CAD" },
+        ].map(tool => (
+          <div class="rounded-xl border border-border bg-bg-card/60 p-3 text-center hover:border-orange-500/50 transition-colors">
+            <div class="text-2xl mb-1">{tool.icon}</div>
+            <div class="text-xs font-bold text-text-heading">{tool.name}</div>
+            <div class="text-[10px] text-text-muted mt-0.5">{tool.desc}</div>
+          </div>
+        ))}
+      </div>
+
+      <!-- Highlight cards -->
+      <div class="grid gap-6 md:grid-cols-3" data-aos="fade-up">
+        <div class="rounded-xl border border-orange-500/20 bg-bg-card p-6">
+          <div class="text-3xl mb-3">📊</div>
+          <h3 class="font-bold text-text-heading">AI 五秒產出預算表</h3>
+          <p class="mt-2 text-xs leading-relaxed text-text-muted">
+            告訴 AI「建立工程預算表」，含假設工程、結構、水電、管理費 8%、利潤 5%，公式全自動。728 萬預算表一鍵完成。
+          </p>
+        </div>
+        <div class="rounded-xl border border-cyan-500/20 bg-bg-card p-6">
+          <div class="text-3xl mb-3">📡</div>
+          <h3 class="font-bold text-text-heading">3000 萬筆點雲即時渲染</h3>
+          <p class="mt-2 text-xs leading-relaxed text-text-muted">
+            華測 RS10 掃描完，瀏覽器直接看。AI 自動識別牆壁地板天花板。DXF 一鍵匯出給 AutoCAD。
+          </p>
+        </div>
+        <div class="rounded-xl border border-purple-500/20 bg-bg-card p-6">
+          <div class="text-3xl mb-3">🏗</div>
+          <h3 class="font-bold text-text-heading">說一句話，AI 建一座工地</h3>
+          <p class="mt-2 text-xs leading-relaxed text-text-muted">
+            「國道一號 KM340 夜間施工」— AI 自動放置交通錐、施工車、警告標誌。20 人可同時訓練疏散演練。
+          </p>
+        </div>
+      </div>
+
+      <!-- New products -->
+      <div class="mt-8 grid gap-6 md:grid-cols-2" data-aos="fade-up">
+        {products.filter(p => ["ai-office","scan-studio","construction-sim"].includes(p.id)).map((p) => (
+          <ProductCard
+            id={p.id}
+            name={p.name}
+            tagline={p.tagline}
+            description={p.description}
+            icon={p.icon}
+            color={p.color}
+            features={p.features}
+          />
+        ))}
+      </div>
+
+      <div class="mt-8 text-center">
+        <a href="/pricing" class="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm font-semibold text-white hover:bg-orange-600">
+          查看方案與定價 →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Us -->
+  <section class="border-t border-border bg-bg-card/30 px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-5xl">
+      <h2 class="mb-4 text-center text-2xl font-bold sm:text-3xl">為什麼選擇築未科技？</h2>
+      <p class="mb-12 text-center text-text-muted">台灣唯一整合「營建施工 AI + 防災預警 AI」的一站式平台</p>
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4" data-aos="fade-up">
+        {[
+          { icon: "🔒", title: "資料在地化", desc: "AI 推論在台灣本地 GPU 執行。你的圖紙、報價、施工資料不經過任何第三方雲端。" },
+          { icon: "🔄", title: "自我進化", desc: "資料飛輪閉環：每次決策存入「預測 vs 實際」→ 模型持續學習 → 越用越準。" },
+          { icon: "⚡", title: "即插即用", desc: "LINE 傳照片就能用。不需改變現有工作流程，AI 融入你熟悉的工具。" },
+          { icon: "🏛️", title: "法規內建", desc: "職安法規、CNS 標準、建築技術規則全部向量化索引。AI 回答都有法規依據。" },
+        ].map((item) => (
+          <div class="rounded-xl border border-border bg-bg-card p-5 text-center">
+            <div class="text-3xl mb-3">{item.icon}</div>
+            <h3 class="font-bold text-text-heading">{item.title}</h3>
+            <p class="mt-2 text-xs leading-relaxed text-text-muted">{item.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl">
+      <h2 class="mb-12 text-center text-2xl font-bold sm:text-3xl">三步驟開始使用</h2>
+      <div class="grid gap-8 md:grid-cols-3" data-aos="fade-up">
+        {[
+          { step: "01", title: "註冊帳號", desc: "30 秒免費註冊，立即取得 API Key。無需綁定信用卡。" },
+          { step: "02", title: "選擇工具", desc: "從 7 大 AI 產品中挑選你需要的，透過操作台直接使用或 API 整合。" },
+          { step: "03", title: "AI 上工", desc: "LINE 推播、自動排程、即時預警 — AI 成為你的 24 小時工地副手。" },
+        ].map((item) => (
+          <div class="text-center">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-lg font-bold text-accent">
+              {item.step}
+            </div>
+            <h3 class="text-lg font-bold">{item.title}</h3>
+            <p class="mt-2 text-sm leading-relaxed text-text-muted">{item.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Dual CTA -->
+  <section class="px-4 py-10 sm:py-20">
+    <div class="mx-auto max-w-4xl grid gap-4 sm:gap-6 sm:grid-cols-2" data-aos="fade-up">
+      <div class="rounded-2xl border border-accent/20 bg-gradient-to-br from-accent/5 to-amber-500/5 p-8 text-center">
+        <div class="text-3xl mb-3">🏗️</div>
+        <h2 class="text-xl font-bold">營建科技化</h2>
+        <p class="mt-2 text-sm text-text-muted">文件解析、工地管理、AI 排程、安全檢查、VR 訓練、監理指揮</p>
+        <a href="/login" class="mt-5 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/25 hover:bg-accent-hover">
+          免費開始
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+          </svg>
+        </a>
+      </div>
+      <div class="rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/5 to-yellow-500/5 p-8 text-center">
+        <div class="text-3xl mb-3">🛡️</div>
+        <h2 class="text-xl font-bold">科技防災</h2>
+        <p class="mt-2 text-sm text-text-muted">颱風追蹤、水災預警、地震警報、自動停工通知、防災 SOP 執行</p>
+        <a href="/demo" class="mt-5 inline-flex items-center gap-2 rounded-xl bg-red-500 px-6 py-3 font-semibold text-white shadow-lg shadow-red-500/25 hover:bg-red-600">
+          申請試用
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+          </svg>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

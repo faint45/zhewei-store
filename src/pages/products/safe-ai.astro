@@ -1,0 +1,77 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductDetail from "../../components/ProductDetail.astro";
+import DemoTerminal from "../../components/DemoTerminal.astro";
+import { products } from "../../content/products";
+
+const product = products.find((p) => p.id === "safe-ai")!;
+
+const requestBody = `{
+  "project_id": "proj-2026-001",
+  "image_url": "https://example.com/safety_inspection_0407.jpg",
+  "checklist_type": "daily_general"
+}`;
+
+const responseJson = `{
+  "inspection_id": "insp-20260407-091532",
+  "timestamp": "2026-04-07T09:15:32+08:00",
+  "overall_risk": "medium",
+  "auto_filled_items": 24,
+  "checklist_results": [
+    {
+      "category": "高空作業",
+      "item": "安全帶佩戴",
+      "status": "pass",
+      "confidence": 0.91,
+      "note": "所有高空作業人員均佩戴安全帶"
+    },
+    {
+      "category": "開口防護",
+      "item": "樓板開口覆蓋",
+      "status": "fail",
+      "confidence": 0.88,
+      "severity": "high",
+      "note": "3F 北側預留開口缺少防護蓋板，需立即改善",
+      "required_action": "安裝防護蓋板或設置警示圍欄"
+    },
+    {
+      "category": "電氣安全",
+      "item": "臨時電箱防水",
+      "status": "pass",
+      "confidence": 0.79,
+      "note": "電箱防水措施完整"
+    },
+    {
+      "category": "支撐系統",
+      "item": "模板支撐檢查",
+      "status": "warning",
+      "confidence": 0.83,
+      "severity": "medium",
+      "note": "B2 區域支撐間距疑似超標，建議現場確認"
+    }
+  ],
+  "critical_issues": 1,
+  "warnings": 1,
+  "passed": 22,
+  "compliance_score": 91.7
+}`;
+---
+
+<BaseLayout title={product.name} description={product.description}>
+  <ProductDetail product={product}>
+    <div slot="demo" class="mb-12">
+      <h2 class="mb-2 text-2xl font-bold">互動 Demo — 安全檢查自動填寫</h2>
+      <p class="mb-5 text-sm text-text-muted">
+        上傳一張現場照片，AI 自動辨識安全缺失並填寫完整檢查表，標記高風險項目。
+      </p>
+      <DemoTerminal
+        productId="safe-ai"
+        method="POST"
+        endpoint="/api/v1/checklist/auto-fill"
+        requestBody={requestBody}
+        responseJson={responseJson}
+        label="自動填寫檢查表"
+      />
+    </div>
+  </ProductDetail>
+</BaseLayout>

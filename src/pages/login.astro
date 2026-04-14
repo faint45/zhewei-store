@@ -1,0 +1,145 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="登入" description="登入築未科技 AI 平台，管理 API Key 與用量。">
+  <section class="px-4 py-16">
+    <div class="mx-auto max-w-md">
+      <!-- Login Form -->
+      <div id="login-panel">
+        <h1 class="text-3xl font-black text-center mb-2">登入</h1>
+        <p class="text-center text-text-muted mb-8">登入後管理 API Key、查看用量統計</p>
+
+        <form id="login-form" class="space-y-4 rounded-2xl border border-border bg-bg-card p-6">
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-text-heading">Email</label>
+            <input type="email" id="l-email" required placeholder="you@company.com"
+              class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-text-heading">密碼</label>
+            <input type="password" id="l-password" required placeholder="••••••"
+              class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" />
+          </div>
+          <div id="l-error" class="hidden text-sm text-red-400"></div>
+          <button type="submit" class="w-full rounded-xl bg-accent py-3 font-semibold text-white hover:bg-accent-hover">
+            登入
+          </button>
+        </form>
+
+        <div class="mt-4 text-center text-sm text-text-muted">
+          還沒有帳號？<button id="show-register" class="text-accent hover:underline">立即註冊</button>
+        </div>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-panel" class="hidden">
+        <h1 class="text-3xl font-black text-center mb-2">註冊</h1>
+        <p class="text-center text-text-muted mb-8">免費建立帳號，立即取得 API Key</p>
+
+        <form id="register-form" class="space-y-4 rounded-2xl border border-border bg-bg-card p-6">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-text-heading">姓名 *</label>
+              <input type="text" id="r-name" required placeholder="您的姓名"
+                class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-text-heading">公司</label>
+              <input type="text" id="r-company" placeholder="公司名稱"
+                class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" />
+            </div>
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-text-heading">Email *</label>
+            <input type="email" id="r-email" required placeholder="you@company.com"
+              class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-semibold text-text-heading">密碼 *</label>
+            <input type="password" id="r-password" required placeholder="至少 6 個字元" minlength="6"
+              class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" />
+          </div>
+          <div id="r-error" class="hidden text-sm text-red-400"></div>
+          <button type="submit" class="w-full rounded-xl bg-accent py-3 font-semibold text-white hover:bg-accent-hover">
+            建立帳號
+          </button>
+        </form>
+
+        <div class="mt-4 text-center text-sm text-text-muted">
+          已有帳號？<button id="show-login" class="text-accent hover:underline">登入</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+const API = "https://api.zhe-wei.net";
+
+document.getElementById("show-register")?.addEventListener("click", () => {
+  document.getElementById("login-panel")!.classList.add("hidden");
+  document.getElementById("register-panel")!.classList.remove("hidden");
+});
+document.getElementById("show-login")?.addEventListener("click", () => {
+  document.getElementById("register-panel")!.classList.add("hidden");
+  document.getElementById("login-panel")!.classList.remove("hidden");
+});
+
+// Login
+document.getElementById("login-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("l-error")!;
+  errEl.classList.add("hidden");
+  try {
+    const res = await fetch(`${API}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: (document.getElementById("l-email") as HTMLInputElement).value,
+        password: (document.getElementById("l-password") as HTMLInputElement).value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.message || "登入失敗");
+    localStorage.setItem("zw_token", data.token);
+    localStorage.setItem("zw_user_id", data.user_id);
+    window.location.href = "/dashboard";
+  } catch (err: any) {
+    errEl.textContent = err.message;
+    errEl.classList.remove("hidden");
+  }
+});
+
+// Register
+document.getElementById("register-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById("r-error")!;
+  errEl.classList.add("hidden");
+  try {
+    const res = await fetch(`${API}/api/v1/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: (document.getElementById("r-email") as HTMLInputElement).value,
+        password: (document.getElementById("r-password") as HTMLInputElement).value,
+        name: (document.getElementById("r-name") as HTMLInputElement).value,
+        company: (document.getElementById("r-company") as HTMLInputElement).value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.message || "註冊失敗");
+    localStorage.setItem("zw_token", data.token);
+    localStorage.setItem("zw_user_id", data.user_id);
+    window.location.href = "/dashboard";
+  } catch (err: any) {
+    errEl.textContent = err.message;
+    errEl.classList.remove("hidden");
+  }
+});
+
+// Auto-redirect if already logged in
+if (localStorage.getItem("zw_token")) {
+  window.location.href = "/dashboard";
+}
+</script>

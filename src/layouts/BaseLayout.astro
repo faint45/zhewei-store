@@ -1,0 +1,144 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "築未科技 — 台灣營建業 AI 智慧平台。文件解析、工地管理、排程成本、安全檢查，四大 AI 引擎助您數位轉型。" } = Astro.props;
+const fullTitle = title === "首頁" ? "築未科技 | 營建 AI 智慧平台" : `${title} | 築未科技`;
+---
+
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="keywords" content="營建AI,施工管理,安全檢查,排程系統,防災預警,BIM,數位孿生,台灣營建業" />
+    <meta name="author" content="築未科技有限公司" />
+    <!-- Open Graph -->
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:site_name" content="築未科技" />
+    <meta property="og:locale" content="zh_TW" />
+    <meta property="og:image" content="https://store.zhe-wei.net/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="https://store.zhe-wei.net/og-image.png" />
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "築未科技 AI 平台",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": description,
+      "url": "https://store.zhe-wei.net",
+      "author": {
+        "@type": "Organization",
+        "name": "築未科技有限公司",
+        "url": "https://store.zhe-wei.net",
+        "telephone": "0975-705-110",
+        "email": "hello@zhe-wei.net"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "TWD",
+        "description": "免費方案 — 每日 100 次 API 呼叫"
+      }
+    })} />
+    <!-- Canonical -->
+    <link rel="canonical" href={Astro.url.href} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- AOS Animate On Scroll -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+    <title>{fullTitle}</title>
+  </head>
+  <body class="min-h-screen">
+    <Nav />
+    <main class="pt-16">
+      <slot />
+    </main>
+    <footer class="border-t border-border bg-bg-card/50">
+      <div class="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+        <div class="grid grid-cols-2 gap-6 sm:gap-8 md:grid-cols-3">
+          <div class="col-span-2 md:col-span-1">
+            <div class="flex items-center gap-2 text-lg font-bold text-text-heading">
+              <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-amber-500 text-sm text-white">築</span>
+              <span>築未科技</span>
+            </div>
+            <p class="mt-2 text-sm text-text-muted">
+              營建科技化 × 科技防災<br class="hidden sm:block" />
+              台灣營建業 AI 智慧平台
+            </p>
+          </div>
+          <div>
+            <h4 class="mb-3 text-sm font-semibold text-text-heading">產品</h4>
+            <ul class="space-y-2 text-sm text-text-muted">
+              <li><a href="/products/doc-ai" class="hover:text-accent">文件智能 DocAI</a></li>
+              <li><a href="/products/site-ai" class="hover:text-accent">工地智眼 SiteAI</a></li>
+              <li><a href="/products/plan-ai" class="hover:text-accent">排程成本 PlanAI</a></li>
+              <li><a href="/products/safe-ai" class="hover:text-accent">安全守護 SafeAI</a></li>
+              <li><a href="/academy" class="hover:text-accent">工程學院 VR 訓練</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="mb-3 text-sm font-semibold text-text-heading">聯絡我們</h4>
+            <ul class="space-y-2 text-sm text-text-muted">
+              <li>聯絡人：胡凱翔</li>
+              <li>電話：0975-705-110</li>
+              <li>LINE ID：faint45</li>
+              <li>Email：hello@zhe-wei.net</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-6 border-t border-border pt-4 sm:pt-6 flex flex-col items-center gap-2 text-xs text-text-muted">
+          <div class="flex flex-wrap justify-center gap-3 sm:gap-4">
+            <a href="/terms" class="hover:text-accent">服務條款</a>
+            <a href="/privacy" class="hover:text-accent">隱私政策</a>
+            <a href="/docs" class="hover:text-accent">API 文件</a>
+            <a href="/login" class="hover:text-accent">登入</a>
+          </div>
+          <div class="text-center">&copy; 2026 築未科技有限公司 統編 60322901</div>
+        </div>
+      </div>
+    </footer>
+    <!-- AOS Init -->
+    <script is:inline src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+    <script is:inline>
+      AOS.init({ duration: 700, easing: 'ease-out-cubic', once: true, offset: 80 });
+    </script>
+
+    <!-- Tawk.to Live Chat (free) — Register at tawk.to to get your widget ID -->
+    <script is:inline>
+    var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+    (function(){
+    var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+    s1.async=true;
+    s1.src='https://embed.tawk.to/default/default';
+    s1.charset='UTF-8';
+    s1.setAttribute('crossorigin','*');
+    s0.parentNode.insertBefore(s1,s0);
+    })();
+    </script>
+
+    <!-- Umami Analytics (self-hosted, privacy-friendly, free) -->
+    <!-- Replace data-website-id with your Umami site ID after setup -->
+    <!--
+    <script defer src="https://analytics.zhe-wei.net/script.js" data-website-id="YOUR_SITE_ID"></script>
+    -->
+  </body>
+</html>

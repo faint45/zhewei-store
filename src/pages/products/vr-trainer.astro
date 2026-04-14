@@ -1,0 +1,26 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProductDetail from "../../components/ProductDetail.astro";
+import { products } from "../../content/products";
+
+const product = products.find((p) => p.id === "vr-trainer")!;
+---
+
+<BaseLayout title={product.name} description={product.description}>
+  <ProductDetail product={product}>
+    <div slot="demo" class="mb-12">
+      <h2 class="mb-2 text-2xl font-bold">VR 機具訓練體驗</h2>
+      <p class="mb-5 text-sm text-text-muted">
+        支援手機/電腦/Quest 頭顯。AI 教練即時語音指導，操作評分系統追蹤學習進度。
+      </p>
+      <div class="rounded-xl border border-border bg-bg-card p-8 text-center">
+        <div class="text-4xl mb-4">🎮</div>
+        <h3 class="text-lg font-bold text-text-heading mb-2">WebXR 沉浸式訓練</h3>
+        <p class="text-sm text-text-muted mb-6">挖土機、塔吊、汽車吊 — 三種機具 VR 操作訓練</p>
+        <a href="/academy" class="inline-flex rounded-xl bg-purple-500 px-6 py-3 font-semibold text-white hover:bg-purple-600">
+          進入工程學院
+        </a>
+      </div>
+    </div>
+  </ProductDetail>
+</BaseLayout>

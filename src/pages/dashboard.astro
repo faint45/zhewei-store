@@ -1,0 +1,259 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="儀表板" description="築未科技 AI 平台 — API Key 管理、用量統計、帳號設定。">
+  <section class="px-4 py-10">
+    <div class="mx-auto max-w-5xl">
+      <!-- Header -->
+      <div class="mb-8 flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-black">儀表板</h1>
+          <p class="text-text-muted text-sm mt-1" id="d-greeting">載入中…</p>
+        </div>
+        <button id="logout-btn" class="rounded-lg border border-border px-4 py-2 text-sm text-text-muted hover:text-text hover:border-accent/50">
+          登出
+        </button>
+      </div>
+
+      <!-- Trial countdown banner -->
+      <div id="trial-banner" class="hidden mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <span class="font-semibold text-amber-600">⏰ 免費試用中</span>
+            <span id="trial-days" class="ml-2 text-sm text-amber-700"></span>
+          </div>
+          <a href="/pricing" class="shrink-0 rounded-lg bg-amber-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-600">
+            立即訂閱
+          </a>
+        </div>
+      </div>
+
+      <!-- Stats cards -->
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 mb-8">
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="text-xs text-text-muted uppercase tracking-wider">今日用量</div>
+          <div class="text-2xl font-black text-text-heading mt-1" id="d-today">-</div>
+          <div class="text-xs text-text-muted mt-1" id="d-limit">- / -</div>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="text-xs text-text-muted uppercase tracking-wider">30 天總計</div>
+          <div class="text-2xl font-black text-text-heading mt-1" id="d-total">-</div>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="text-xs text-text-muted uppercase tracking-wider">方案</div>
+          <div class="text-2xl font-black text-accent mt-1" id="d-plan">-</div>
+        </div>
+        <div class="rounded-xl border border-border bg-bg-card p-4">
+          <div class="text-xs text-text-muted uppercase tracking-wider">API Keys</div>
+          <div class="text-2xl font-black text-text-heading mt-1" id="d-keys-count">-</div>
+        </div>
+      </div>
+
+      <!-- Usage chart (simple bar chart) -->
+      <div class="rounded-xl border border-border bg-bg-card p-6 mb-8">
+        <h2 class="text-lg font-bold mb-4">各端點用量</h2>
+        <div id="d-usage-chart" class="space-y-2">
+          <div class="text-sm text-text-muted">載入中…</div>
+        </div>
+      </div>
+
+      <!-- API Keys -->
+      <div class="rounded-xl border border-border bg-bg-card p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-bold">API Keys</h2>
+          <button id="create-key-btn" class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">
+            + 建立新 Key
+          </button>
+        </div>
+
+        <!-- New key result (hidden by default) -->
+        <div id="new-key-box" class="hidden mb-4 rounded-lg border border-green-500/30 bg-green-500/5 p-4">
+          <div class="text-xs text-green-400 font-semibold mb-1">新 API Key（僅顯示一次，請立即複製）</div>
+          <div class="flex items-center gap-2">
+            <code id="new-key-value" class="flex-1 rounded bg-bg px-3 py-2 text-sm text-accent font-mono break-all"></code>
+            <button id="copy-key-btn" class="shrink-0 rounded bg-accent/20 px-3 py-2 text-xs text-accent hover:bg-accent/30">複製</button>
+          </div>
+        </div>
+
+        <div id="d-keys-list" class="space-y-2">
+          <div class="text-sm text-text-muted">載入中…</div>
+        </div>
+      </div>
+
+      <!-- Projects -->
+      <div class="rounded-xl border border-border bg-bg-card p-6 mb-8">
+        <h2 class="text-lg font-bold mb-4">我的專案記錄</h2>
+        <div id="d-projects" class="space-y-2">
+          <div class="text-sm text-text-muted">載入中…</div>
+        </div>
+      </div>
+
+      <!-- Quick links -->
+      <div id="quick-links" class="grid gap-4 sm:grid-cols-3">
+        <a href="/console" class="rounded-xl border border-border bg-bg-card p-4 hover:border-accent/50 transition-colors">
+          <div class="text-accent font-bold mb-1">AI 操作台</div>
+          <div class="text-sm text-text-muted">直接在線上使用各 AI 工具</div>
+        </a>
+        <a href="/docs" class="rounded-xl border border-border bg-bg-card p-4 hover:border-accent/50 transition-colors">
+          <div class="text-accent font-bold mb-1">API 文件</div>
+          <div class="text-sm text-text-muted">端點參考與整合指南</div>
+        </a>
+        <a href="/pricing" class="rounded-xl border border-border bg-bg-card p-4 hover:border-accent/50 transition-colors">
+          <div class="text-accent font-bold mb-1">升級方案</div>
+          <div class="text-sm text-text-muted">提高 API 用量上限</div>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+const API = "https://api.zhe-wei.net";
+const token = localStorage.getItem("zw_token");
+
+if (!token) {
+  window.location.href = "/login";
+}
+
+const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
+
+async function loadDashboard() {
+  try {
+    // Profile
+    const meRes = await fetch(`${API}/api/v1/auth/me`, { headers });
+    if (!meRes.ok) { localStorage.removeItem("zw_token"); window.location.href = "/login"; return; }
+    const me = await meRes.json();
+    const user = me.user;
+    document.getElementById("d-greeting")!.textContent = `${user.name || user.email} · ${user.company || "個人帳號"}`;
+    const planLabels: Record<string, string> = { trial: "試用版", free: "免費版", starter: "入門版", pro: "進階版", enterprise: "企業版" };
+    document.getElementById("d-plan")!.textContent = planLabels[user.plan] || (user.plan || "free").toUpperCase();
+
+    // Trial banner
+    if (user.is_trial) {
+      const banner = document.getElementById("trial-banner")!;
+      banner.classList.remove("hidden");
+      const d = user.trial_days_left ?? 0;
+      document.getElementById("trial-days")!.textContent =
+        d <= 0 ? "試用已到期" : `還有 ${d} 天到期`;
+      if (d <= 3) banner.classList.replace("border-amber-500/30", "border-red-500/30");
+    }
+
+    // Admin link
+    if (user.role === "admin") {
+      const ql = document.getElementById("quick-links")!;
+      ql.insertAdjacentHTML("beforeend", `
+        <a href="/admin" class="rounded-xl border border-accent/40 bg-accent/5 p-4 hover:border-accent transition-colors">
+          <div class="text-accent font-bold mb-1">管理後台</div>
+          <div class="text-sm text-text-muted">用戶管理、付款紀錄、發送通知</div>
+        </a>`);
+    }
+
+    // Usage
+    const usageRes = await fetch(`${API}/api/v1/auth/usage`, { headers });
+    const usage = await usageRes.json();
+    document.getElementById("d-today")!.textContent = String(usage.today_requests || 0);
+    document.getElementById("d-limit")!.textContent =
+      usage.today_limit ? `${usage.today_requests} / ${usage.today_limit} 次` : `${usage.today_requests} 次（無限制）`;
+    document.getElementById("d-total")!.textContent = String(usage.today_requests || 0);
+
+    // Usage chart
+    const chart = document.getElementById("d-usage-chart")!;
+    const endpoints = usage.by_endpoint || [];
+    if (endpoints.length === 0) {
+      chart.innerHTML = '<div class="text-sm text-text-muted">尚無使用記錄。使用 API 後數據將在此顯示。</div>';
+    } else {
+      const maxCount = Math.max(...endpoints.map((e: any) => e.count), 1);
+      chart.innerHTML = endpoints.map((ep: any) => {
+        const pct = (ep.count / maxCount * 100).toFixed(0);
+        const label = ep.endpoint.replace("/api/v1/", "");
+        return `<div class="flex items-center gap-3">
+          <div class="w-40 text-xs text-text-muted truncate shrink-0" title="${ep.endpoint}">${label}</div>
+          <div class="flex-1 h-4 bg-bg rounded overflow-hidden">
+            <div class="h-full bg-accent/60 rounded" style="width:${pct}%"></div>
+          </div>
+          <div class="w-12 text-right text-xs text-text-muted">${ep.count} 次</div>
+        </div>`;
+      }).join("");
+    }
+
+    // API Keys
+    const keysRes = await fetch(`${API}/api/v1/auth/keys`, { headers });
+    const keysData = await keysRes.json();
+    const keys = keysData.keys || [];
+    document.getElementById("d-keys-count")!.textContent = String(keys.length);
+    const keysList = document.getElementById("d-keys-list")!;
+    if (keys.length === 0) {
+      keysList.innerHTML = '<div class="text-sm text-text-muted">尚無 API Key。點擊上方按鈕建立。</div>';
+    } else {
+      keysList.innerHTML = keys.map((k: any) => `
+        <div class="flex items-center gap-3 rounded-lg border border-border bg-bg p-3">
+          <code class="text-sm text-accent font-mono">${k.key_prefix}•••••••</code>
+          <span class="text-xs text-text-muted">${k.name}</span>
+          <span class="ml-auto text-xs text-text-muted">${k.last_used ? new Date(k.last_used).toLocaleDateString("zh-TW") : "未使用"}</span>
+          <span class="text-xs ${k.is_active ? 'text-green-400' : 'text-red-400'}">${k.is_active ? "啟用" : "停用"}</span>
+        </div>
+      `).join("");
+    }
+    // Projects
+    try {
+      const projRes = await fetch(`${API}/api/v1/site/records/default?limit=5`, { headers });
+      if (projRes.ok) {
+        const projData = await projRes.json();
+        const records = projData.records || [];
+        const projEl = document.getElementById("d-projects")!;
+        if (records.length === 0) {
+          projEl.innerHTML = '<div class="text-sm text-text-muted">尚無施工記錄。使用 LINE Bot 或 AI 操作台上傳記錄。</div>';
+        } else {
+          projEl.innerHTML = records.slice(0,5).map((r: any) => `
+            <div class="flex items-center gap-3 rounded-lg border border-border bg-bg p-3">
+              <span class="text-xs px-2 py-0.5 rounded bg-accent/10 text-accent">${r.category || '記錄'}</span>
+              <span class="text-sm flex-1 truncate">${r.description || r.raw_analysis?.summary || '-'}</span>
+              <span class="text-xs text-text-muted shrink-0">${r.timestamp ? new Date(r.timestamp).toLocaleDateString('zh-TW') : ''}</span>
+            </div>
+          `).join('');
+        }
+      }
+    } catch {}
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Create API Key
+document.getElementById("create-key-btn")?.addEventListener("click", async () => {
+  const name = prompt("API Key 名稱（例：production、testing）：", "Default");
+  if (!name) return;
+  try {
+    const res = await fetch(`${API}/api/v1/auth/api-key?name=${encodeURIComponent(name)}`, {
+      method: "POST", headers
+    });
+    const data = await res.json();
+    if (data.api_key) {
+      const box = document.getElementById("new-key-box")!;
+      document.getElementById("new-key-value")!.textContent = data.api_key;
+      box.classList.remove("hidden");
+      loadDashboard(); // refresh keys list
+    }
+  } catch (err) {
+    alert("建立失敗");
+  }
+});
+
+// Copy key
+document.getElementById("copy-key-btn")?.addEventListener("click", () => {
+  const key = document.getElementById("new-key-value")!.textContent || "";
+  navigator.clipboard.writeText(key);
+  document.getElementById("copy-key-btn")!.textContent = "已複製!";
+  setTimeout(() => { document.getElementById("copy-key-btn")!.textContent = "複製"; }, 2000);
+});
+
+// Logout
+document.getElementById("logout-btn")?.addEventListener("click", () => {
+  localStorage.removeItem("zw_token");
+  localStorage.removeItem("zw_user_id");
+  window.location.href = "/login";
+});
+
+loadDashboard();
+</script>

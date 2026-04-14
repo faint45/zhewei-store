@@ -1,0 +1,52 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday 6 AM UTC
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@v12
+        id: lighthouse
+        with:
+          urls: |
+            https://store.zhe-wei.net/
+            https://store.zhe-wei.net/products/
+            https://store.zhe-wei.net/login/
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: Format results
+        id: format
+        run: |
+          echo "homepage_perf=$(echo '${{ steps.lighthouse.outputs.manifest }}' | jq -r '.[0].summary.performance * 100 | floor')" >> $GITHUB_OUTPUT
+          echo "homepage_a11y=$(echo '${{ steps.lighthouse.outputs.manifest }}' | jq -r '.[0].summary.accessibility * 100 | floor')" >> $GITHUB_OUTPUT
+          echo "homepage_bp=$(echo '${{ steps.lighthouse.outputs.manifest }}' | jq -r '.[0].summary."best-practices" * 100 | floor')" >> $GITHUB_OUTPUT
+          echo "homepage_seo=$(echo '${{ steps.lighthouse.outputs.manifest }}' | jq -r '.[0].summary.seo * 100 | floor')" >> $GITHUB_OUTPUT
+
+      - name: Create badge data
+        run: |
+          mkdir -p badges
+          for metric in performance accessibility best-practices seo; do
+            score=$(echo '${{ steps.lighthouse.outputs.manifest }}' | jq -r ".[0].summary.\"${metric}\" * 100 | floor")
+            color="red"
+            if [ "$score" -ge 90 ]; then color="brightgreen"; elif [ "$score" -ge 50 ]; then color="orange"; fi
+            echo "{\"schemaVersion\":1,\"label\":\"${metric}\",\"message\":\"${score}\",\"color\":\"${color}\"}" > badges/${metric}.json
+          done
+          cat badges/*.json
+
+      - name: Upload badge artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-badges
+          path: badges/

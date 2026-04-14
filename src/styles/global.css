@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0f1117;
+  --color-bg-card: #1a1d27;
+  --color-bg-card-hover: #222636;
+  --color-border: #2a2e3a;
+  --color-accent: #f97316;
+  --color-accent-hover: #fb923c;
+  --color-text: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-text-heading: #f8fafc;
+  --color-success: #22c55e;
+  --color-info: #3b82f6;
+
+  --font-sans: "Noto Sans TC", "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans antialiased;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-white;
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-text-heading font-bold;
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  img, svg, video, canvas, iframe {
+    max-width: 100%;
+    height: auto;
+  }
+
+  pre, code {
+    max-width: 100%;
+    overflow-x: auto;
+    word-break: break-word;
+  }
+
+  table {
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+  }
+}

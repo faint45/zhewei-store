@@ -1,0 +1,199 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+const courses = [
+  {
+    id: "excavator",
+    name: "挖土機操作",
+    icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
+    description: "學習挖掘機基本操作、土方開挖技巧、安全距離判斷。AI 即時教練指導。",
+    lessons: 3,
+    duration: "約 2 小時",
+    difficulty: "入門",
+    color: "from-orange-500 to-amber-400",
+    available: true,
+    vrLink: "/academy/vr-trainer",
+    courseLink: "/academy/excavator",
+  },
+  {
+    id: "tower-crane",
+    name: "塔式起重機操作",
+    icon: "M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4z",
+    description: "塔吊安全操作、吊裝計畫擬定、風速限制判斷。",
+    lessons: 4,
+    duration: "約 3 小時",
+    difficulty: "進階",
+    color: "from-blue-500 to-cyan-400",
+    available: false,
+  },
+  {
+    id: "truck-crane",
+    name: "汽車吊操作",
+    icon: "M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0",
+    description: "汽車吊架設、外伸腳平衡、吊重計算與安全操作。",
+    lessons: 3,
+    duration: "約 2.5 小時",
+    difficulty: "進階",
+    color: "from-green-500 to-emerald-400",
+    available: false,
+  },
+];
+---
+
+<BaseLayout
+  title="工程學院"
+  description="築未工程學院 — AI 教練 + VR 沉浸式營建機具操作訓練。挖土機、塔吊、汽車吊，安全高效地學會操作。"
+>
+  <!-- Hero -->
+  <section class="px-4 pt-12 pb-8">
+    <div class="mx-auto max-w-5xl text-center">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 text-sm font-medium text-accent">
+        ChuWei Engineering Academy
+      </div>
+      <h1 class="text-4xl font-black md:text-5xl">
+        築未<span class="bg-gradient-to-r from-accent to-amber-400 bg-clip-text text-transparent">工程學院</span>
+      </h1>
+      <p class="mx-auto mt-4 max-w-2xl text-lg text-text-muted">
+        AI 智慧教練 + WebXR 沉浸式訓練。用手機、電腦或 VR 頭顯，安全高效地學會營建機具操作。
+      </p>
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm text-text-muted">
+        <span class="flex items-center gap-1.5 rounded-full bg-bg-card px-3 py-1.5 border border-border">
+          <svg class="h-4 w-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+          AI 即時教練
+        </span>
+        <span class="flex items-center gap-1.5 rounded-full bg-bg-card px-3 py-1.5 border border-border">
+          <svg class="h-4 w-4 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+          WebXR 沉浸體驗
+        </span>
+        <span class="flex items-center gap-1.5 rounded-full bg-bg-card px-3 py-1.5 border border-border">
+          <svg class="h-4 w-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          操作評分+證書
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Courses -->
+  <section class="px-4 pb-16">
+    <div class="mx-auto max-w-5xl">
+      <h2 class="mb-6 text-xl font-bold text-text-heading">訓練課程</h2>
+      <div class="grid gap-6 md:grid-cols-3">
+        {courses.map((course) => (
+          <div class={`group relative rounded-2xl border bg-bg-card p-6 transition-all hover:border-accent/50 ${course.available ? "border-border" : "border-border/50 opacity-70"}`}>
+            {!course.available && (
+              <div class="absolute top-4 right-4 rounded-full bg-bg px-2.5 py-0.5 text-xs font-medium text-text-muted border border-border">
+                即將推出
+              </div>
+            )}
+            <div class={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${course.color}`}>
+              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={course.icon} />
+              </svg>
+            </div>
+            <h3 class="mb-2 text-lg font-bold text-text-heading">{course.name}</h3>
+            <p class="mb-4 text-sm text-text-muted">{course.description}</p>
+            <div class="mb-4 flex flex-wrap gap-2 text-xs text-text-muted">
+              <span class="rounded bg-bg px-2 py-0.5 border border-border">{course.lessons} 課</span>
+              <span class="rounded bg-bg px-2 py-0.5 border border-border">{course.duration}</span>
+              <span class="rounded bg-bg px-2 py-0.5 border border-border">{course.difficulty}</span>
+            </div>
+            {course.available ? (
+              <div class="flex gap-2">
+                <a href={course.courseLink} class="flex-1 rounded-lg border border-border px-3 py-2 text-center text-sm font-semibold text-text-heading hover:border-accent/50 hover:text-accent transition-colors">
+                  課程內容
+                </a>
+                <a href={course.vrLink} class="flex-1 rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-white hover:bg-accent-hover transition-colors">
+                  VR 訓練
+                </a>
+              </div>
+            ) : (
+              <button disabled class="w-full rounded-lg bg-bg px-3 py-2 text-sm text-text-muted border border-border cursor-not-allowed">
+                開發中
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Personal Progress (from localStorage) -->
+  <section class="px-4 pb-8" id="progress-section" style="display:none">
+    <div class="mx-auto max-w-5xl">
+      <h2 class="mb-4 text-xl font-bold text-text-heading">我的進度</h2>
+      <div class="rounded-2xl border border-border bg-bg-card p-6">
+        <div class="grid gap-4 sm:grid-cols-4 text-center" id="progress-stats"></div>
+        <div class="mt-4 h-3 w-full rounded-full bg-bg overflow-hidden border border-border">
+          <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-accent to-success transition-all duration-500" style="width:0%"></div>
+        </div>
+        <p class="mt-2 text-xs text-text-muted text-center" id="progress-label"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="border-t border-border px-4 py-16">
+    <div class="mx-auto max-w-5xl">
+      <h2 class="mb-8 text-center text-xl font-bold text-text-heading">學習流程</h2>
+      <div class="grid gap-6 md:grid-cols-4">
+        <div class="text-center">
+          <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent font-bold">1</div>
+          <div class="text-sm font-semibold text-text-heading">選擇機具</div>
+          <p class="mt-1 text-xs text-text-muted">挑選要學習的機具類型</p>
+        </div>
+        <div class="text-center">
+          <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent font-bold">2</div>
+          <div class="text-sm font-semibold text-text-heading">互動拆解</div>
+          <p class="mt-1 text-xs text-text-muted">3D 零件拆解 + 功能說明</p>
+        </div>
+        <div class="text-center">
+          <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent font-bold">3</div>
+          <div class="text-sm font-semibold text-text-heading">VR 操作訓練</div>
+          <p class="mt-1 text-xs text-text-muted">AI 教練即時指導 + 評分</p>
+        </div>
+        <div class="text-center">
+          <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent font-bold">4</div>
+          <div class="text-sm font-semibold text-text-heading">取得證書</div>
+          <p class="mt-1 text-xs text-text-muted">通過考核取得操作認證</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // Load training progress from localStorage
+  try {
+    const raw = localStorage.getItem("zw_vr_progress");
+    if (raw) {
+      const data = JSON.parse(raw);
+      const passed = (data.passed || []).filter(Boolean).length;
+      const total = 3;
+      const records = data.records || [];
+      const sessions = records.length;
+      const totalTime = records.reduce((s: number, r: any) => s + (r.timeSeconds || 0), 0);
+      const avgScore = sessions > 0
+        ? Math.round(records.reduce((s: number, r: any) => s + (r.bestScore || 0), 0) / sessions)
+        : 0;
+
+      if (sessions > 0) {
+        const section = document.getElementById("progress-section");
+        const stats = document.getElementById("progress-stats");
+        const bar = document.getElementById("progress-bar");
+        const label = document.getElementById("progress-label");
+
+        if (section) section.style.display = "block";
+        if (stats) stats.innerHTML = `
+          <div><div class="text-2xl font-black text-accent">${passed}/${total}</div><div class="text-xs text-text-muted">通過關卡</div></div>
+          <div><div class="text-2xl font-black text-info">${sessions}</div><div class="text-xs text-text-muted">訓練次數</div></div>
+          <div><div class="text-2xl font-black text-success">${avgScore}</div><div class="text-xs text-text-muted">平均最高分</div></div>
+          <div><div class="text-2xl font-black" style="color:#a855f7">${Math.floor(totalTime / 60)}m</div><div class="text-xs text-text-muted">總訓練時間</div></div>
+        `;
+        if (bar) bar.style.width = `${(passed / total * 100).toFixed(0)}%`;
+        if (label) label.textContent = passed >= total
+          ? "全部通過！你已完成挖土機操作訓練。"
+          : `已完成 ${passed} / ${total} 個關卡`;
+      }
+    }
+  } catch { /* no progress */ }
+</script>

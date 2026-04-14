@@ -1,0 +1,270 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="AI 操作台" description="直接在線上操作築未科技全部 AI 工具 — 文件解析、視覺辨識、排程、3D 重建等。">
+  <section class="px-4 py-10">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-8">
+        <h1 class="text-3xl font-black">AI 操作台</h1>
+        <p class="text-text-muted mt-1">選擇工具，直接上傳檔案或輸入內容，即時取得 AI 分析結果。</p>
+      </div>
+
+      <!-- Tool selector -->
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 mb-8" id="tool-grid">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Active tool panel -->
+      <div id="tool-panel" class="hidden rounded-2xl border border-border bg-bg-card overflow-hidden">
+        <div class="flex items-center justify-between border-b border-border px-6 py-4">
+          <div>
+            <h2 class="font-bold text-text-heading" id="tp-name">-</h2>
+            <p class="text-xs text-text-muted" id="tp-desc">-</p>
+          </div>
+          <button id="tp-close" class="text-text-muted hover:text-text text-xl">&times;</button>
+        </div>
+
+        <div class="p-6">
+          <!-- File upload area -->
+          <div id="tp-upload" class="hidden mb-4">
+            <label class="block text-sm font-semibold text-text-heading mb-2">上傳檔案</label>
+            <input type="file" id="tp-file" class="block w-full text-sm border border-border rounded-lg p-2 bg-bg text-text" />
+          </div>
+
+          <!-- Text input area -->
+          <div id="tp-text-area" class="hidden mb-4">
+            <label class="block text-sm font-semibold text-text-heading mb-2" id="tp-text-label">輸入內容</label>
+            <textarea id="tp-text" rows="4" class="w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none focus:border-accent" placeholder=""></textarea>
+          </div>
+
+          <!-- Options -->
+          <div id="tp-options" class="hidden mb-4 flex flex-wrap gap-3">
+            <!-- Dynamic options -->
+          </div>
+
+          <!-- Submit -->
+          <button id="tp-submit" class="rounded-xl bg-accent px-6 py-3 font-semibold text-white hover:bg-accent-hover disabled:bg-gray-600 disabled:cursor-not-allowed">
+            執行分析
+          </button>
+
+          <!-- Result -->
+          <div id="tp-result" class="hidden mt-6">
+            <div class="text-sm font-semibold text-text-heading mb-2">分析結果</div>
+            <div id="tp-result-image" class="hidden mb-4">
+              <img id="tp-img" class="rounded-lg max-w-full" />
+            </div>
+            <pre id="tp-result-json" class="rounded-lg bg-bg border border-border p-4 text-xs text-text overflow-auto max-h-96 whitespace-pre-wrap"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+const API = "https://api.zhe-wei.net";
+const token = localStorage.getItem("zw_token");
+if (!token) window.location.href = "/login";
+const headers = { "Authorization": `Bearer ${token}` };
+
+interface Tool {
+  id: string; name: string; desc: string; icon: string; color: string;
+  endpoint: string; method: string;
+  inputType: "file" | "text" | "both";
+  fileAccept?: string;
+  textLabel?: string;
+  textPlaceholder?: string;
+  options?: { id: string; label: string; values: string[] }[];
+}
+
+const TOOLS: Tool[] = [
+  {
+    id: "doc-parse", name: "文件解析", desc: "PDF/圖片 → 結構化資料", icon: "📄",
+    color: "from-blue-500 to-cyan-400",
+    endpoint: "/api/v1/doc/parse", method: "POST", inputType: "file",
+    fileAccept: ".pdf,.png,.jpg,.jpeg",
+  },
+  {
+    id: "vision-detect", name: "視覺辨識", desc: "YOLOv8 物件偵測 / 工安偵測 / OCR", icon: "👁",
+    color: "from-purple-500 to-violet-400",
+    endpoint: "/api/v1/vision/detect", method: "POST", inputType: "file",
+    fileAccept: "image/*",
+    options: [
+      { id: "mode", label: "模式", values: ["detect|物件偵測", "safety|工安偵測", "ocr|OCR 文字"] },
+      { id: "model_size", label: "模型", values: ["n|Nano(快)", "s|Small", "m|Medium"] },
+    ],
+  },
+  {
+    id: "site-photo", name: "工地照片分析", desc: "照片 → 施工進度/品質/安全紀錄", icon: "📷",
+    color: "from-green-500 to-emerald-400",
+    endpoint: "/api/v1/site/photo", method: "POST", inputType: "file",
+    fileAccept: "image/*",
+  },
+  {
+    id: "schedule-gen", name: "AI 排程", desc: "專案描述 → CPM 排程", icon: "📅",
+    color: "from-orange-500 to-amber-400",
+    endpoint: "/api/v1/schedule/generate", method: "POST", inputType: "text",
+    textLabel: "專案描述", textPlaceholder: "台北市中山區 8 層 RC 住宅新建工程，地上 8 層地下 2 層，總面積 1200 坪",
+  },
+  {
+    id: "bid-sim", name: "投標模擬", desc: "Monte Carlo 投標風險分析", icon: "💰",
+    color: "from-yellow-500 to-orange-400",
+    endpoint: "/api/v1/bid/simulate", method: "POST", inputType: "text",
+    textLabel: "專案描述", textPlaceholder: "8層RC住宅，1200坪，地下2層停車場",
+  },
+  {
+    id: "checklist", name: "安全檢查表", desc: "照片 → 自動填寫檢查表", icon: "✅",
+    color: "from-red-500 to-rose-400",
+    endpoint: "/api/v1/checklist/auto-fill", method: "POST", inputType: "file",
+    fileAccept: "image/*",
+  },
+  {
+    id: "bridge-chat", name: "AI 對話", desc: "營建專業 AI 助手", icon: "🧠",
+    color: "from-indigo-500 to-blue-400",
+    endpoint: "/api/v1/bridge/chat/stream", method: "POST", inputType: "text",
+    textLabel: "提問", textPlaceholder: "混凝土養護期間需要注意什麼？",
+  },
+  {
+    id: "video-gen", name: "影片生成", desc: "文字 → AI 生成施工影片", icon: "🎬",
+    color: "from-pink-500 to-rose-400",
+    endpoint: "/api/v1/video/generate", method: "POST", inputType: "text",
+    textLabel: "影片描述", textPlaceholder: "施工現場的鋼筋綁紮作業，工人戴安全帽",
+  },
+  {
+    id: "threed-recon", name: "3D 重建", desc: "照片 → OBJ + STL 3D 模型", icon: "🎲",
+    color: "from-teal-500 to-cyan-400",
+    endpoint: "/api/v1/3d/reconstruct", method: "POST", inputType: "file",
+    fileAccept: "image/*",
+  },
+  {
+    id: "code-run", name: "程式碼執行", desc: "Python/JS 沙箱執行", icon: "💻",
+    color: "from-gray-500 to-zinc-400",
+    endpoint: "/api/v1/code/run", method: "POST", inputType: "text",
+    textLabel: "程式碼 (Python)", textPlaceholder: "import math\nprint(f'PI = {math.pi:.10f}')",
+  },
+];
+
+let activeTool: Tool | null = null;
+
+// Render tool grid
+const grid = document.getElementById("tool-grid")!;
+TOOLS.forEach(tool => {
+  const div = document.createElement("div");
+  div.className = "cursor-pointer rounded-xl border border-border bg-bg-card p-4 hover:border-accent/50 transition-all";
+  div.innerHTML = `
+    <div class="text-2xl mb-2">${tool.icon}</div>
+    <div class="font-bold text-sm text-text-heading">${tool.name}</div>
+    <div class="text-xs text-text-muted mt-1">${tool.desc}</div>
+  `;
+  div.addEventListener("click", () => openTool(tool));
+  grid.appendChild(div);
+});
+
+function openTool(tool: Tool) {
+  activeTool = tool;
+  const panel = document.getElementById("tool-panel")!;
+  panel.classList.remove("hidden");
+  document.getElementById("tp-name")!.textContent = `${tool.icon} ${tool.name}`;
+  document.getElementById("tp-desc")!.textContent = tool.desc;
+  document.getElementById("tp-result")!.classList.add("hidden");
+  document.getElementById("new-key-box")?.classList.add("hidden");
+
+  // Show/hide inputs
+  const uploadDiv = document.getElementById("tp-upload")!;
+  const textDiv = document.getElementById("tp-text-area")!;
+  const optDiv = document.getElementById("tp-options")!;
+  uploadDiv.classList.toggle("hidden", tool.inputType === "text");
+  textDiv.classList.toggle("hidden", tool.inputType === "file");
+  if (tool.inputType === "both") { uploadDiv.classList.remove("hidden"); textDiv.classList.remove("hidden"); }
+
+  if (tool.fileAccept) (document.getElementById("tp-file") as HTMLInputElement).accept = tool.fileAccept;
+  if (tool.textLabel) document.getElementById("tp-text-label")!.textContent = tool.textLabel;
+  if (tool.textPlaceholder) (document.getElementById("tp-text") as HTMLTextAreaElement).placeholder = tool.textPlaceholder;
+
+  // Options
+  if (tool.options && tool.options.length > 0) {
+    optDiv.classList.remove("hidden");
+    optDiv.innerHTML = tool.options.map(opt => `
+      <div>
+        <label class="text-xs text-text-muted block mb-1">${opt.label}</label>
+        <select class="border border-border bg-bg rounded-lg px-3 py-1.5 text-sm text-text" data-opt="${opt.id}">
+          ${opt.values.map(v => { const [val, label] = v.split("|"); return `<option value="${val}">${label || val}</option>`; }).join("")}
+        </select>
+      </div>
+    `).join("");
+  } else {
+    optDiv.classList.add("hidden");
+  }
+
+  panel.scrollIntoView({ behavior: "smooth" });
+}
+
+document.getElementById("tp-close")?.addEventListener("click", () => {
+  document.getElementById("tool-panel")!.classList.add("hidden");
+  activeTool = null;
+});
+
+// Submit
+document.getElementById("tp-submit")?.addEventListener("click", async () => {
+  if (!activeTool) return;
+  const btn = document.getElementById("tp-submit") as HTMLButtonElement;
+  btn.disabled = true; btn.textContent = "分析中…";
+  const resultDiv = document.getElementById("tp-result")!;
+  const jsonPre = document.getElementById("tp-result-json")!;
+  const imgDiv = document.getElementById("tp-result-image")!;
+  resultDiv.classList.add("hidden");
+
+  try {
+    let res: Response;
+    const url = `${API}${activeTool.endpoint}`;
+
+    if (activeTool.inputType === "file" || activeTool.inputType === "both") {
+      const file = (document.getElementById("tp-file") as HTMLInputElement).files?.[0];
+      if (!file) { alert("請選擇檔案"); btn.disabled = false; btn.textContent = "執行分析"; return; }
+      const fd = new FormData();
+      fd.append("file", file);
+      // Add options
+      document.querySelectorAll("#tp-options select").forEach(sel => {
+        fd.append((sel as HTMLSelectElement).dataset.opt!, (sel as HTMLSelectElement).value);
+      });
+      res = await fetch(url, { method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: fd });
+    } else {
+      const text = (document.getElementById("tp-text") as HTMLTextAreaElement).value;
+      if (!text.trim()) { alert("請輸入內容"); btn.disabled = false; btn.textContent = "執行分析"; return; }
+
+      // Different payload format per tool
+      let body: any;
+      if (activeTool.id === "code-run") {
+        body = { lang: "python", code: text };
+      } else if (activeTool.id === "bridge-chat") {
+        body = { messages: [{ role: "user", content: text }], mode: "local" };
+      } else if (activeTool.id === "video-gen") {
+        body = { prompt: text };
+      } else {
+        body = { project_desc: text };
+      }
+      res = await fetch(url, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    }
+
+    const data = await res.json();
+    resultDiv.classList.remove("hidden");
+
+    // Show annotated image if present
+    if (data.annotated_b64) {
+      imgDiv.classList.remove("hidden");
+      (document.getElementById("tp-img") as HTMLImageElement).src = `data:image/jpeg;base64,${data.annotated_b64}`;
+    } else {
+      imgDiv.classList.add("hidden");
+    }
+
+    jsonPre.textContent = JSON.stringify(data, null, 2);
+  } catch (err: any) {
+    resultDiv.classList.remove("hidden");
+    imgDiv.classList.add("hidden");
+    jsonPre.textContent = `Error: ${err.message}`;
+  }
+
+  btn.disabled = false; btn.textContent = "執行分析";
+});
+</script>

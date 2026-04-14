@@ -1,0 +1,127 @@
+---
+interface Props {
+  productId: string;
+  method: string;
+  endpoint: string;
+  requestBody: string;
+  responseJson: string;
+  label?: string;
+}
+
+const { productId, method, endpoint, requestBody, responseJson, label = "試用 Demo" } = Astro.props;
+const terminalId = `terminal-${productId}`;
+---
+
+<div class="rounded-2xl border border-border bg-[#0d0f14] overflow-hidden font-mono text-sm">
+  <!-- Terminal title bar -->
+  <div class="flex items-center gap-2 border-b border-border bg-[#161820] px-4 py-3">
+    <span class="h-3 w-3 rounded-full bg-red-500/70"></span>
+    <span class="h-3 w-3 rounded-full bg-yellow-500/70"></span>
+    <span class="h-3 w-3 rounded-full bg-green-500/70"></span>
+    <span class="ml-3 text-xs text-text-muted">築未科技 API Console</span>
+    <div class="ml-auto">
+      <button
+        id={`run-btn-${productId}`}
+        class="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-accent-hover"
+      >
+        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 3l14 9-14 9V3z" fill="currentColor" />
+        </svg>
+        {label}
+      </button>
+    </div>
+  </div>
+
+  <!-- Request block -->
+  <div class="px-4 py-3 border-b border-border/50">
+    <div class="flex items-center gap-2 text-xs mb-2">
+      <span class={`px-1.5 py-0.5 rounded text-xs font-bold ${method === 'GET' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
+        {method}
+      </span>
+      <span class="text-text-muted">https://api.zhe-wei.net</span>
+      <span class="text-text">{endpoint}</span>
+    </div>
+    {method === 'POST' && (
+      <pre class="text-xs text-text-muted leading-relaxed overflow-x-auto">{requestBody}</pre>
+    )}
+  </div>
+
+  <!-- Response block -->
+  <div id={terminalId} class="min-h-[160px] px-4 py-3">
+    <div class="text-xs text-text-muted/50 italic">▶ 按下「{label}」執行...</div>
+  </div>
+</div>
+
+<script define:vars={{ terminalId, productId, responseJson }}>
+  const btn = document.getElementById(`run-btn-${productId}`);
+  const terminal = document.getElementById(terminalId);
+  let isRunning = false;
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function typeWriter(text, container, speed = 8) {
+    let i = 0;
+    while (i < text.length) {
+      container.textContent += text[i];
+      i++;
+      // Speed up for non-visual chars
+      if (['{', '}', '"', ':', ',', ' ', '\n'].includes(text[i - 1])) {
+        await sleep(speed / 3);
+      } else {
+        await sleep(speed);
+      }
+    }
+  }
+
+  async function runDemo() {
+    if (isRunning) return;
+    isRunning = true;
+
+    btn.disabled = true;
+    btn.textContent = '執行中...';
+
+    terminal.innerHTML = '';
+
+    // Status line
+    const statusEl = document.createElement('div');
+    statusEl.className = 'text-xs text-text-muted mb-2 flex items-center gap-2';
+    statusEl.innerHTML = `
+      <span class="inline-block h-2 w-2 rounded-full bg-accent animate-pulse"></span>
+      <span>正在呼叫 AI 引擎...</span>
+    `;
+    terminal.appendChild(statusEl);
+
+    await sleep(600);
+
+    // HTTP status
+    const httpStatus = document.createElement('div');
+    httpStatus.className = 'text-xs mb-3 flex items-center gap-2';
+    httpStatus.innerHTML = `<span class="text-green-400 font-bold">200 OK</span><span class="text-text-muted">— 182ms</span>`;
+    terminal.appendChild(httpStatus);
+    statusEl.remove();
+
+    await sleep(200);
+
+    // Response header
+    const headerEl = document.createElement('div');
+    headerEl.className = 'text-xs text-text-muted mb-1';
+    headerEl.textContent = '// Response';
+    terminal.appendChild(headerEl);
+
+    // Typewriter response
+    const responseEl = document.createElement('pre');
+    responseEl.className = 'text-xs text-green-300/90 leading-relaxed whitespace-pre-wrap overflow-x-auto';
+    terminal.appendChild(responseEl);
+
+    await typeWriter(responseJson, responseEl, 6);
+
+    // Reset button
+    btn.disabled = false;
+    btn.innerHTML = `<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> 再執行`;
+    isRunning = false;
+  }
+
+  btn?.addEventListener('click', runDemo);
+</script>

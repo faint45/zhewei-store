@@ -1,0 +1,25 @@
+{
+  "name": "zhewei-store",
+  "type": "module",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "@tsparticles/slim": "^3.9.1",
+    "aos": "^2.3.4",
+    "astro": "^6.1.4",
+    "maplibre-gl": "^5.22.0",
+    "tailwindcss": "^4.2.2",
+    "three": "^0.183.2",
+    "tsparticles": "^3.9.1"
+  }
+}
